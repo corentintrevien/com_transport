@@ -12,7 +12,7 @@ library(plyr)
 library(Rfast)
 library(stringr)
 library(maptools)
-source("W:/Bureau/OSM/functions.R")
+source("W:/Bureau/OSM/Z_functions.R")
 
 options(scipen = 15)
 
@@ -28,8 +28,7 @@ read_oms_table <- function(path){
 
 osm_france <- read_oms_table("W:/Bureau/OSM/Data/France/dataosm_france")
 
-
-#Synthèse des moyens de transport
+#Synth?se des moyens de transport
 mdt <- function(table,list){
   replace_mdt <- function(x){
     table[,c(x)] <- addNA(table[,c(x)])
@@ -65,7 +64,7 @@ list_track_type <- c("rail","tram","subway","light_rail","construction","narrow_
 id_track <- osm_france$ways$tags[osm_france$ways$tags$k=="railway" &  osm_france$ways$tags$v %in% list_track_type,"id"] 
 track <- subset_osm_table(osm_france,id_ways = id_track)
 
-#Données tracks
+#Donn?es tracks
 tags_track <- track$ways$tags[track$ways$tags$k %in% c("usage","train","service","railway","importance","name","id"),]
 tags_track <- as.data.frame(cast(tags_track, id ~ k,value = "v"))
 tags_track <- rename(tags_track,replace = c(id="id_track"))
@@ -81,7 +80,7 @@ refs_route_rw$name_line <- tags_route_rw[match(refs_route_rw$id,tags_route_rw$id
 refs_route_rw <- rename(refs_route_rw,replace = c(id='id_line',ref='id_track')) 
 tags_track[,c("name_line",'id_line')] <- refs_route_rw[match(tags_track$id_track,refs_route_rw$id_track),c("name_line",'id_line')]
 
-#Coordonnées des tracks
+#Coordonn?es des tracks
 points_track <- track$ways$refs
 points_track <- rename(points_track,replace = c(id="id_track"))
 points_track[,c('x','y')] <- osm_france$nodes$coords[match(points_track$ref, osm_france$nodes$coords$id),c('x','y')]
@@ -111,13 +110,13 @@ map_track@data[,c("xmin","xmax","ymin","ymax")] <- bbox_track[match(map_track$id
 id_route <- osm_france$relation$tags[osm_france$relation$tags$k=="route" & osm_france$relation$tags$v %in% list_route_type,"id"]
 route <- subset_osm_table(osm_france, id_relations = id_route)
 
-#Données routes
+#Donn?es routes
 tags_route <- route$relations$tags[route$relations$tags$k %in% c("from","to","route","name","operator","network","id"),]
 tags_route <- as.data.frame(cast(tags_route, id ~ k,value = "v"))
 tags_route <- rename(tags_route,replace = c(id="id_route"))
 data_route <- tags_route
 
-#Références routes
+#R?f?rences routes
 refs_route <- route$relations$refs
 refs_route <- rename(refs_route,replace = c(id="id_route"))
 refs_route_nodeway <- subset_osm_table(osm_france,id_nodes = refs_route$ref,id_ways = refs_route$ref)
@@ -137,7 +136,7 @@ refs_route_way[,c("railway","public_transport","highway","building","name")] <- 
                                                                                                     c("railway","public_transport","highway","building","name")]
 refs_route <- rbind(refs_route_node,refs_route_way)
 
-#Sélection des routes renvoyant à des tracks (et retrait des bus)
+#S?lection des routes renvoyant ? des tracks (et retrait des bus)
 refs_route$map_track <- (refs_route$ref %in% unique(map_track$id_track))
 stat_route <- data.frame(cbind(table(refs_route$id_route,refs_route$highway),
                                table(refs_route$id_route,refs_route$railway),
@@ -161,37 +160,37 @@ map_track <- map_track[map_track$id_track %in% unique(track_route$id_track),]
 track <- subset_osm_table(track,id_ways = track_route$id_track)
 
 ################
-#Données Lignes#
+#Donn?es Lignes#
 ################
 #Master route
 #id_route_master <- find(route_master_network,relation(tags(k=="route_master")))
 #route_master <- subset(route_master_network,relation_ids = id_route_master)
 #Selection des masters routes 
 #refs_route_master <- route_master$relations$refs[route_master$relations$refs$ref %in% unique(data_route$id_route),]  
-#Données des masters routes 
+#Donn?es des masters routes 
 #tags_route_master <-  route_master$relations$tags[route_master$relations$tags$id %in% unique(refs_route_master$id),] 
 #tags_route_master <- as.data.frame(cast(tags_route_master, id ~ k))
 
 ########
-#Arrêts#
+#Arr?ts#
 ########
 
-#Récupération de tout ce qui ressemble de près ou de loin à un arrêt 
+#R?cup?ration de tout ce qui ressemble de pr?s ou de loin ? un arr?t 
 refs_route_arret <- refs_route[refs_route$railway %in% c("halt","station","stop","tram_stop","buffer_stop") |
                                  refs_route$role %in% c("stop","stop_exit_only","stop_entry_only","platform","platform_entry_only","platform_exit_only") |
                                  refs_route$public_transport %in% c("stop_position","station","platform") |
                                  refs_route$building %in% c("train_station"),
                                c("id_route","ref","railway","public_transport","highway","building","role","type","name")]
 
-#Arrêt de type node
+#Arr?t de type node
 refs_route_arret_node <- refs_route_arret[refs_route_arret$type=='node',]
 refs_route_arret_node$id_node <- refs_route_arret_node$ref
-#Récupération des points des ways
+#R?cup?ration des points des ways
 refs_route_arret_way <- osm_france$ways$refs[osm_france$ways$refs$id %in% unique(refs_route_arret$ref),]
 refs_route_arret_way <- rename(refs_route_arret_way,replace = c(id = "ref",ref = "id_node"))
 refs_route_arret_way <- merge(refs_route_arret_way,refs_route_arret[refs_route_arret$type=='way',], by = "ref")
 
-#Pour les tram et les métros, récupération de tous les arrêts trouvés sur voie (on part du principe que tout arrêt traversé est desservi pour ce type de transport)
+#Pour les tram et les m?tros, r?cup?ration de tous les arr?ts trouv?s sur voie (on part du principe que tout arr?t travers? est desservi pour ce type de transport)
 refs_track_arret <- osm_france$ways$refs[osm_france$ways$refs$id %in% unique(map_track[map_track$railway %in% c("subway","tram"),]$id_track),]
 refs_track_arret <- rename(refs_track_arret,replace= c(id = "id_track"))
 tags_track_arret <- osm_france$nodes$tags[osm_france$nodes$tags$id %in% unique(refs_track_arret$ref), ]
@@ -199,14 +198,14 @@ tags_track_arret <- tags_track_arret[tags_track_arret$k %in% c("id","railway","p
 tags_track_arret <- data.frame(cast(tags_track_arret, id ~ k,value = "v"))
 tags_track_arret <- tags_track_arret[tags_track_arret$railway %in% c("halt","station","stop","tram_stop","buffer_stop") |
                                        tags_track_arret$public_transport %in% c("stop_position","station","platform"),]
-refs_track_arret <- refs_track_arret[refs_track_arret$ref %in% unique(tags_track_arret$id),] #On ne retient que les points des voies correspondant à un arrêt
+refs_track_arret <- refs_track_arret[refs_track_arret$ref %in% unique(tags_track_arret$id),] #On ne retient que les points des voies correspondant ? un arr?t
 tags_points_track <- osm_france$nodes$tags[osm_france$node$tags$k %in% c("railway","public_transport","name"),]
 tags_points_track <- as.data.frame(cast(tags_points_track[tags_points_track$id %in% unique(refs_track_arret$ref),], id ~ k,value = "v"))
 
 refs_track_arret[,c("railway","public_transport","name")] <- tags_points_track[match(refs_track_arret$ref,
                                                                                      tags_points_track$id),
                                                                                c("railway","public_transport","name")]
-#On retire les arrêts identifiés dans des routes
+#On retire les arr?ts identifi?s dans des routes
 refs_track_arret <- refs_track_arret[!(refs_track_arret$ref %in% unique(refs_route_arret$ref)) ,] 
 
 #Ajout des identifiants route
@@ -222,10 +221,10 @@ if(nrow(refs_route_track_arret)>0){
   refs_route_track_arret$id_node = refs_route_track_arret$ref
 }
 
-#Fusion des arrêts node, way et type_node
+#Fusion des arr?ts node, way et type_node
 refs_route_arret <- rbind(refs_route_arret_node,refs_route_arret_way,refs_route_track_arret)
 
-#Recherche d'un stop area pour tous les arrêts
+#Recherche d'un stop area pour tous les arr?ts
 
 id_stop_area <- osm_france$relations$tags[osm_france$relations$tags$k=="public_transport" & osm_france$relations$tags$v=="stop_area","id"]
 stop_area <- subset_osm_table(osm_france,id_relations =id_stop_area)
@@ -233,7 +232,7 @@ refs_stop_area <- stop_area$relations$refs
 refs_stop_area <- rename(refs_stop_area,replace= c(id="id_stop_area"))
 refs_route_arret[,"id_stop_area"] <- refs_stop_area[match(refs_route_arret$ref,refs_stop_area$ref),c("id_stop_area")]
 
-#Coordonnées des arrêts 
+#Coordonn?es des arr?ts 
 refs_route_arret[,c("x","y")] <- osm_france$nodes$coords[match(refs_route_arret$id_node,osm_france$nodes$coords$id),c("x","y")]
 
 #Ajout d'un centroide pour chaque objet de type way
@@ -246,7 +245,7 @@ centroid_refs_route_arret$id_node <- paste("CRT",centroid_refs_route_arret$ref,s
 refs_route_arret <- rbind(refs_route_arret,centroid_refs_route_arret)
 
 #REPERAGE DES CLUSTER D'ARRET (PSEUDO STOP_AREA)
-#Repérage des objets "arrêts" proches les uns des autres sur une ligne (clusters) 
+#Rep?rage des objets "arr?ts" proches les uns des autres sur une ligne (clusters) 
 find_cluster_arret <- function(ident){
   #print(ident)
   #ident <- "4109606"
@@ -310,7 +309,7 @@ refs_route_arret$id_stop_area_new <- new_stop_area[match(refs_route_arret$id_nod
 
 #SELECTION DES STOP POUR CHAQUE CLUSTER
 
-#ETAPE 1 : Recherche d'un "stop" dans chaque id_stop_area_new  (Prévoir ultérieurement le cas où toutes les stations sont dans un stop area)
+#ETAPE 1 : Recherche d'un "stop" dans chaque id_stop_area_new  (Pr?voir ult?rieurement le cas o? toutes les stations sont dans un stop area)
 refs_route_arret$public_transport <- ifelse(is.na(refs_route_arret$public_transport),"",as.character(refs_route_arret$public_transport))
 refs_route_arret$railway <- ifelse(is.na(refs_route_arret$railway),"",as.character(refs_route_arret$railway))
 refs_route_arret$is_point_track <- refs_route_arret$id_node %in% unique(track$ways$refs$ref)

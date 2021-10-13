@@ -9,63 +9,70 @@ library(raster)
 library(fasterize)
 library(sp)
 library(sf)
+library(zip)
 library(dplyr)
 library(plyr)
 library(Rfast)
 library(stringr)
 library(stringi)
 library(maptools)
-#http://www.öpnvkarte.de
+#http://www.?pnvkarte.de
 options(scipen = 15)
-source("W:/Bureau/OSM/Z_functions.R")
-dir <- "W:/Bureau/OSM/Data/download"
+source("Z_functions.R")
+dir <- "Rail/download"
 
-list_regions <- c("Hauts-de-France","Pays-de-la-Loire","Normandie","Bretagne","Île-de-France","Grand-Est",
-                  "Bourgogne-Franche-Comté","Nouvelle-Aquitaine","Occitanie","Provence-Alpes-Côte-d'Azur",
-                  "Auvergne-Rhône-Alpes","Corse","Centre-Val-de-Loire")
+list_regions <- c("Hauts-de-France","Pays-de-la-Loire","Normandie","Bretagne","ÃŽle-de-France","Grand-Est",
+                  "Bourgogne-Franche-ComtÃ©","Nouvelle-Aquitaine","Occitanie","Provence-Alpes-CÃ´te-d'Azur",
+                  "Auvergne-RhÃ´ne-Alpes","Corse","Centre-Val-de-Loire")
 
+r <- "Corse"
+type <- "railway_asc"
+xmlParseFrance <- function(type){
+  osm_france <- lapply(list_regions, function(r){
+    print(r)
+    file <- paste0(type,"_",plain_str(r),".osm")
+    unzip("Rail/download/OSM.zip",file,exdir="Rail/download")
+    osm_data <- xmlParse(paste0("Rail/download/",file))
+    file.remove(paste0("Rail/download/",file))
+    return(osm_data)
+  })
+  return(osm_france)
+}
 
-deb <- Sys.time()
-railway_asc <- lapply(list_regions, function(x) xmlParse(paste("W:/Bureau/OSM/Data/download/railway_asc_",plain_str(x),".osm",sep="")))
-railway_des <- lapply(list_regions, function(x) xmlParse(paste("W:/Bureau/OSM/Data/download/railway_des_",plain_str(x),".osm",sep="")))
-route_asc <- lapply(list_regions, function(x) xmlParse(paste("W:/Bureau/OSM/Data/download/route_asc_",plain_str(x),".osm",sep="")))
-route_des <- lapply(list_regions, function(x) xmlParse(paste("W:/Bureau/OSM/Data/download/route_des_",plain_str(x),".osm",sep="")))
-public <- lapply(list_regions, function(x) xmlParse(paste("W:/Bureau/OSM/Data/download/public_",plain_str(x),".osm",sep="")))
-fin <- Sys.time()
-fin-deb  
+#Decompression et lecture des donnÃ©es
+railway_asc <- xmlParseFrance("railway_asc")
+railway_des <- xmlParseFrance("railway_des")
+route_des <- xmlParseFrance("route_des")
+route_asc <- xmlParseFrance("route_asc")
+public <- xmlParseFrance("public")
 
+#Application de la fonction 'osm_parse' (vÃ©rifier la fonction exacte)
 parsed_railway_asc <- lapply(railway_asc,osm_parse)
 parsed_railway_des <- lapply(railway_des,osm_parse)
 parsed_route_asc <- lapply(route_asc,osm_parse)
 parsed_route_des <- lapply(route_des,osm_parse)
 parsed_public <- lapply(public,osm_parse)
 
-
-fin <- Sys.time()
-fin-deb  
-
+#Fusion des donnÃ©es rÃ©gionales
 france_railway_asc <- osm_table_fusion(parsed_railway_asc)
 france_railway_des <- osm_table_fusion(parsed_railway_des)
 france_route_asc <- osm_table_fusion(parsed_route_asc)
 france_route_des <- osm_table_fusion(parsed_route_des)
 france_public <- osm_table_fusion(parsed_public)
-fin <- Sys.time()
-fin-deb  
 
-osm_full <- list(france_railway_asc,france_railway_des,france_route_asc,france_route_des,france_public,france_bus)
+#Fusions des diffÃ©rentes catÃ©gories de donnÃ©es
+osm_full <- list(france_railway_asc,france_railway_des,france_route_asc,france_route_des,france_public)
 osm_full <- osm_table_fusion(osm_full)
 
-fin <- Sys.time()
-fin-deb 
-#write_oms_table(osm_full,"W:/Bureau/OSM/Data/France/dataosm")
-#fin <- Sys.time()
-#fin-deb  
-
+#SÃ©lection des donnÃ©es situÃ©es en France 
 osm_france <- check_nodes_france(osm_full)
 osm_france <- select_france(osm_france)
 
 fin <- Sys.time()
 fin-deb 
+
+write_oms_table(osm_france,"Rail/dataosm_france")
+
 
 #############
 #CORRECTIONS#
@@ -84,7 +91,7 @@ tram_stop_avignon <- data.frame(id =  rep(c("10181947","10181946"),each=length(i
                                 type = "node",role = "stop")
 osm_france$relations$refs <- rbind(osm_france$relations$refs,tram_stop_avignon)
 
-#Correction tram de Besançon
+#Correction tram de Besan?on
 #ref_route_tram <- osm_france$relations$refs[osm_france$relations$refs$id %in% osm_france$relations$tags[osm_france$relations$tags$k == "route" & osm_france$relations$tags$v == "tram","id"],"ref"]
 #id_missing_node_tram <- osm_france$node$tags[osm_france$node$tags$k == "tram" & osm_france$node$tags$v == "yes" & !(osm_france$node$tags$id %in% ref_route_tram),"id"]
 #id_missing_way_tram <- osm_france$ways$tags[osm_france$ways$tags$k == "tram" & osm_france$ways$tags$v == "yes" & !(osm_france$ways$tags$id %in% ref_route_tram),"id"]
@@ -120,7 +127,7 @@ osm_france$relations$refs <- osm_france$relations$refs[!duplicated(osm_france$re
 osm_france$relations$tags <- osm_france$relations$tags[!(osm_france$relations$tags$id %in% c("4107862","4107863","4107864","4107865")),]
 osm_france$relations$refs <- osm_france$relations$refs[!(osm_france$relations$refs$id %in% c("4107862","4107863","4107864","4107865")),]
 
-#Correction tram d'Île-de-France -> retrait d'une ligne en construction 
+#Correction tram d'?le-de-France -> retrait d'une ligne en construction 
 osm_france$relations$tags <- osm_france$relations$tags[!(osm_france$relations$tags$id %in% c("10041578")),]
 osm_france$relations$refs <- osm_france$relations$refs[!(osm_france$relations$refs$id %in% c("10041578")),]
 
@@ -137,7 +144,7 @@ osm_france$ways$refs <- osm_france$ways$refs[!(osm_france$ways$refs$id %in% id_w
 osm_france$relations$tags <- osm_france$relations$tags[!(osm_france$relations$tags$id %in% id_relation_tourist),]
 osm_france$relations$refs <- osm_france$relations$refs[!(osm_france$relations$refs$id %in% id_relation_tourist),]
 
-#Correction tram de Nancy -> Les passages sur route sont codés en voie
+#Correction tram de Nancy -> Les passages sur route sont codÃ©s en voie
 id_ways_nancy <- osm_france$relations$refs[osm_france$relations$refs$id %in% c("2074460","2074461") & osm_france$relations$refs$type == "way","ref"]
 id_rail_nancy <- osm_france$ways$tags[osm_france$ways$tags$id %in% id_ways_nancy & osm_france$ways$tags$k == "railway","id"]
 osm_france$ways$tags[!(osm_france$ways$tags$id %in% id_rail_nancy) & osm_france$ways$tags$id %in% id_ways_nancy & osm_france$ways$tags$k == "highway","v"] <- "pvs"
@@ -156,74 +163,70 @@ fin-deb
 #SAUVEGARDE DES FICHIERS OSM#
 #############################
 
-write_oms_table(osm_france,"W:/Bureau/OSM/Data/France/dataosm_france")
-
-fin <- Sys.time()
-fin-deb  
-
+write_oms_table(osm_france,"Rail/dataosm_france_corr")
 
 ###########################
 #Infrastructures cyclables#
 ###########################
-
-
-box_france <- read.csv(paste(dir,"/Reseau_routier/box_france.csv",sep=""))
-list_box_france <- split(box_france,row.names(box_france))
-list_box_france <- lapply(list_box_france,unlist)
-list_box_france <- lapply(list_box_france,function(x) gsub("-", "w", paste(x[1],x[2],sep="_")))
-
-select_cycleway <- function(osmtables){
-  #osmtables <- parsed_reseau_routier[[2]]
-  cycleway_ids <- unique(osmtables$ways$tags[substr(osmtables$ways$tags[,"k"],1,7) %in% c("bicycle","cyclewa") |
-                                              substr(osmtables$ways$tags[,"v"],1,7) %in% c("bicycle","cyclewa") |
-                                              (osmtables$ways$tags[,"k"] == "highway" & osmtables$ways$tags[,"v"]=="living_street") |
-                                              osmtables$ways$tags[,"k"] %in% c("oneway:bicycle","sidewalk:bicycle"),"id"])
-                 
-  cycleway <- subset_osm_table(osmtables,id_nodes = unique(osmtables$ways$refs[osmtables$ways$refs[,"id"] %in% cycleway_ids,"ref"]) ,id_ways=cycleway_ids)
-  return(cycleway)
-}
-#AJOUTER 
-
-reseau_routier <- lapply(list_box_france, function(x) xmlParse(paste(dir,"/Reseau_routier/reseau_routier_",x,".osm",sep="")))
-parsed_reseau_routier <- lapply(reseau_routier,osm_parse)
-parsed_reseau_cyclable <- lapply(parsed_reseau_routier,select_cycleway)
-
-#Le carreau 97 fait planter le programme et il est presque totalement en dehors de France 
-reseau_cyclable <- osm_table_fusion(parsed_reseau_cyclable[1:96])
-france_reseau_cyclable <- check_nodes_france(reseau_cyclable)
-france_reseau_cyclable <- select_france(france_reseau_cyclable)
-
-write_oms_table(france_reseau_cyclable,"W:/Bureau/OSM/Data/France/dataosm_france_reseau_cyclable")
-
-###############################
-#Infrastructures autoroutières#
-###############################
-
-
-box_france <- read.csv(paste(dir,"/Reseau_routier/box_france.csv",sep=""))
-list_box_france <- split(box_france,row.names(box_france))
-list_box_france <- lapply(list_box_france,unlist)
-list_box_france <- lapply(list_box_france,function(x) gsub("-", "w", paste(x[1],x[2],sep="_")))
-
-
-select_major_road <- function(osmtables){
-  
-  #osmtables <- parsed_reseau_routier[[2]]
-  major_road_ids <- unique(osmtables$ways$tags[osmtables$ways$tags[,"k"] == "highway" & 
-                                               osmtables$ways$tags[,"v"] %in% c("trunk","motorway"),"id"])
-  
-  major_road <- subset_osm_table(osmtables,id_nodes = unique(osmtables$ways$refs[osmtables$ways$refs[,"id"] %in% 
-                                                                                 major_road_ids,"ref"]),
-                                           id_ways=major_road_ids)
-  return(major_road)
-}
-
-reseau_routier <- lapply(list_box_france, function(x) xmlParse(paste(dir,"/Reseau_routier/reseau_routier_",x,".osm",sep="")))
-parsed_reseau_routier <- lapply(reseau_routier,osm_parse)
-parsed_reseau_routier_principal <- lapply(parsed_reseau_routier,select_major_road)
-
-reseau_routier_principal <- osm_table_fusion(parsed_reseau_routier_principal[1:96])
-france_reseau_routier_principal <- check_nodes_france(reseau_routier_principal)
-france_reseau_routier_principal <- select_france(france_reseau_routier_principal)
-
-write_oms_table(france_reseau_routier_principal,"W:/Bureau/OSM/Data/France/dataosm_france_autoroute")
+# 
+# 
+# box_france <- read.csv(paste(dir,"/Reseau_routier/box_france.csv",sep=""))
+# list_box_france <- split(box_france,row.names(box_france))
+# list_box_france <- lapply(list_box_france,unlist)
+# list_box_france <- lapply(list_box_france,function(x) gsub("-", "w", paste(x[1],x[2],sep="_")))
+# 
+# select_cycleway <- function(osmtables){
+#   #osmtables <- parsed_reseau_routier[[2]]
+#   cycleway_ids <- unique(osmtables$ways$tags[substr(osmtables$ways$tags[,"k"],1,7) %in% c("bicycle","cyclewa") |
+#                                               substr(osmtables$ways$tags[,"v"],1,7) %in% c("bicycle","cyclewa") |
+#                                               (osmtables$ways$tags[,"k"] == "highway" & osmtables$ways$tags[,"v"]=="living_street") |
+#                                               osmtables$ways$tags[,"k"] %in% c("oneway:bicycle","sidewalk:bicycle"),"id"])
+#                  
+#   cycleway <- subset_osm_table(osmtables,id_nodes = unique(osmtables$ways$refs[osmtables$ways$refs[,"id"] %in% cycleway_ids,"ref"]) ,id_ways=cycleway_ids)
+#   return(cycleway)
+# }
+# #AJOUTER 
+# 
+# reseau_routier <- lapply(list_box_france, function(x) xmlParse(paste(dir,"/Reseau_routier/reseau_routier_",x,".osm",sep="")))
+# parsed_reseau_routier <- lapply(reseau_routier,osm_parse)
+# parsed_reseau_cyclable <- lapply(parsed_reseau_routier,select_cycleway)
+# 
+# #Le carreau 97 fait planter le programme et il est presque totalement en dehors de France 
+# reseau_cyclable <- osm_table_fusion(parsed_reseau_cyclable[1:96])
+# france_reseau_cyclable <- check_nodes_france(reseau_cyclable)
+# france_reseau_cyclable <- select_france(france_reseau_cyclable)
+# 
+# write_oms_table(france_reseau_cyclable,"W:/Bureau/OSM/Rail/France/dataosm_france_reseau_cyclable")
+# 
+# ###############################
+# #Infrastructures autorouti?res#
+# ###############################
+# 
+# 
+# box_france <- read.csv(paste(dir,"/Reseau_routier/box_france.csv",sep=""))
+# list_box_france <- split(box_france,row.names(box_france))
+# list_box_france <- lapply(list_box_france,unlist)
+# list_box_france <- lapply(list_box_france,function(x) gsub("-", "w", paste(x[1],x[2],sep="_")))
+# 
+# 
+# select_major_road <- function(osmtables){
+#   
+#   #osmtables <- parsed_reseau_routier[[2]]
+#   major_road_ids <- unique(osmtables$ways$tags[osmtables$ways$tags[,"k"] == "highway" & 
+#                                                osmtables$ways$tags[,"v"] %in% c("trunk","motorway"),"id"])
+#   
+#   major_road <- subset_osm_table(osmtables,id_nodes = unique(osmtables$ways$refs[osmtables$ways$refs[,"id"] %in% 
+#                                                                                  major_road_ids,"ref"]),
+#                                            id_ways=major_road_ids)
+#   return(major_road)
+# }
+# 
+# reseau_routier <- lapply(list_box_france, function(x) xmlParse(paste(dir,"/Reseau_routier/reseau_routier_",x,".osm",sep="")))
+# parsed_reseau_routier <- lapply(reseau_routier,osm_parse)
+# parsed_reseau_routier_principal <- lapply(parsed_reseau_routier,select_major_road)
+# 
+# reseau_routier_principal <- osm_table_fusion(parsed_reseau_routier_principal[1:96])
+# france_reseau_routier_principal <- check_nodes_france(reseau_routier_principal)
+# france_reseau_routier_principal <- select_france(france_reseau_routier_principal)
+# 
+# write_oms_table(france_reseau_routier_principal,"W:/Bureau/OSM/Rail/France/dataosm_france_autoroute")

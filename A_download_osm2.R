@@ -11,18 +11,17 @@ library(stringi)
 library(stringr)
 library(raster)
 library(data.table)
+library(zip)
 library(archive)
 library(fasterize)
 library(RPostgreSQL)
 options(timeout=1800)
 
-#install.packages("RPostgreSQL")
 #set_overpass_url("https://lz4.overpass-api.de/api/interpreter")
 #set_overpass_url("https://z.overpass-api.de/api/interpreter")
 set_overpass_url("https://overpass.kumi.systems/api/interpreter")
 get_overpass_url()
 
-#dir <- "W:/Bureau/OSM/Data/download"
 source("Z_functions.R")
 
 #Liste des régions
@@ -31,9 +30,8 @@ list_regions <- c("Bretagne","Hauts-de-France","Pays-de-la-Loire","Normandie","�
                   "Auvergne-Rhône-Alpes","Corse","Centre-Val-de-Loire")
 
 #Création des dossier de téléchargement des données OSM
-dir.create("Data")
-dir.create("Data/download")
-dir <- "Data/download"
+dir.create("Rail")
+dir.create("Rail/download")
 
 #Fonction de téléchargement des données brutes OSM de transport ferré pour une région 
 download_osm_rail_region <- function(region){
@@ -42,7 +40,7 @@ download_osm_rail_region <- function(region){
   plain_region <- plain_str(region)
 
   #Objets descendant railway  
-  file_railway_des <- paste(dir,"/railway_des_",plain_region,".osm",sep="")
+  file_railway_des <- paste("Rail/download/railway_des_",plain_region,".osm",sep="")
   if(!file.exists(file_railway_des)){
     print("Railway_des")
     try({
@@ -56,7 +54,7 @@ download_osm_rail_region <- function(region){
   }
  
   #Objets ascendant railway  
-  file_railway_asc <- paste(dir,"/railway_asc_",plain_region,".osm",sep="")
+  file_railway_asc <- paste("Rail/download/railway_asc_",plain_region,".osm",sep="")
   if(!file.exists(file_railway_asc)){
     print("Railway_asc")
     try({
@@ -71,7 +69,7 @@ download_osm_rail_region <- function(region){
   }
       
   #Objets public transport 
-  file_public <- paste(dir,"/public_",plain_region,".osm",sep="")
+  file_public <- paste("Rail/download/public_",plain_region,".osm",sep="")
   if(!file.exists(file_public)){
     print("Public")
     try({
@@ -83,7 +81,7 @@ download_osm_rail_region <- function(region){
   }
   
   #Objets route descendant 
-  file_route_des <- paste(dir,"/route_des_",plain_region,".osm",sep="")
+  file_route_des <- paste("Rail/download/route_des_",plain_region,".osm",sep="")
   if(!file.exists(file_route_des)){
     print("Route_des")
     try({
@@ -95,7 +93,7 @@ download_osm_rail_region <- function(region){
   }
   
   #Objets route ascendant 
-  file_route_asc <- paste(dir,"/route_asc_",plain_region,".osm",sep="")
+  file_route_asc <- paste("Rail/download/route_asc_",plain_region,".osm",sep="")
   if(!file.exists(file_route_asc)){
     print("Route_asc")
     try({
@@ -113,10 +111,10 @@ download_osm_rail_region <- function(region){
 for(region in list_regions){download_osm_rail_region(region)}
 
 #Compression des fichiers 
-if(!file.exists("Data/download/OMS.zip")){
-  list_download <- paste0("Data/download/",list.files('Data/download'))
-  zip("Data/download/OMS.zip",list_download)
-  file.remove(list_download)
+if(!file.exists("Rail/download/OMS.zip")){
+  list_download <- list.files('Rail/download') 
+  zip("Rail/download/OSM.zip",paste0("Rail/download/",list_download), mode ="cherry-pick")
+  file.remove(paste0("Rail/download/",list_download))
 }
 
 
