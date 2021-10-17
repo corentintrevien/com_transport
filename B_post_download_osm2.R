@@ -8,6 +8,7 @@ library(rgeos)
 library(raster)
 library(fasterize)
 library(sp)
+library(data.table)
 library(sf)
 library(zip)
 library(dplyr)
@@ -25,8 +26,7 @@ list_regions <- c("Hauts-de-France","Pays-de-la-Loire","Normandie","Bretagne","�
                   "Bourgogne-Franche-Comté","Nouvelle-Aquitaine","Occitanie","Provence-Alpes-Côte-d'Azur",
                   "Auvergne-Rhône-Alpes","Corse","Centre-Val-de-Loire")
 
-r <- "Corse"
-type <- "railway_asc"
+
 xmlParseFrance <- function(type){
   osm_france <- lapply(list_regions, function(r){
     print(r)
@@ -64,15 +64,12 @@ france_public <- osm_table_fusion(parsed_public)
 osm_full <- list(france_railway_asc,france_railway_des,france_route_asc,france_route_des,france_public)
 osm_full <- osm_table_fusion(osm_full)
 
+write_oms_table(osm_full,"Rail/rail_osm_full")
+
+osm_full$relations$refs[osm_full$relations$refs[,"id"]=="1662336",]
+
 #Sélection des données situées en France 
-osm_france <- check_nodes_france(osm_full)
-osm_france <- select_france(osm_france)
-
-fin <- Sys.time()
-fin-deb 
-
-write_oms_table(osm_france,"Rail/dataosm_france")
-
+osm_france <- select_france(osm_full)
 
 #############
 #CORRECTIONS#
@@ -80,7 +77,7 @@ write_oms_table(osm_france,"Rail/dataosm_france")
 
 #Correction tram d'Avignon
 bbox_avignon <- getbb("Avignon")
-id_tram_stop <- osm_france$nodes$tags[osm_france$nodes$tags$k=="railway" & osm_france$nodes$tags$v=="tram_stop","id"]
+id_tram_stop <- osm_france$nodes$tags[osm_france$nodes$tags$k =="railway" & osm_france$nodes$tags$v=="tram_stop","id"]
 id_tram_stop_avignon <- osm_france$nodes$coords[osm_france$nodes$coords$id %in% id_tram_stop &
                                                   osm_france$nodes$coords$lon <= bbox_avignon[1,2] & 
                                                   osm_france$nodes$coords$lon >= bbox_avignon[1,1] &
@@ -91,7 +88,7 @@ tram_stop_avignon <- data.frame(id =  rep(c("10181947","10181946"),each=length(i
                                 type = "node",role = "stop")
 osm_france$relations$refs <- rbind(osm_france$relations$refs,tram_stop_avignon)
 
-#Correction tram de Besan?on
+#Correction tram de Besançon
 #ref_route_tram <- osm_france$relations$refs[osm_france$relations$refs$id %in% osm_france$relations$tags[osm_france$relations$tags$k == "route" & osm_france$relations$tags$v == "tram","id"],"ref"]
 #id_missing_node_tram <- osm_france$node$tags[osm_france$node$tags$k == "tram" & osm_france$node$tags$v == "yes" & !(osm_france$node$tags$id %in% ref_route_tram),"id"]
 #id_missing_way_tram <- osm_france$ways$tags[osm_france$ways$tags$k == "tram" & osm_france$ways$tags$v == "yes" & !(osm_france$ways$tags$id %in% ref_route_tram),"id"]
@@ -150,20 +147,7 @@ id_rail_nancy <- osm_france$ways$tags[osm_france$ways$tags$id %in% id_ways_nancy
 osm_france$ways$tags[!(osm_france$ways$tags$id %in% id_rail_nancy) & osm_france$ways$tags$id %in% id_ways_nancy & osm_france$ways$tags$k == "highway","v"] <- "pvs"
 osm_france$ways$tags[!(osm_france$ways$tags$id %in% id_rail_nancy) & osm_france$ways$tags$id %in% id_ways_nancy & osm_france$ways$tags$k == "highway","k"] <- "railway"
 
-fin <- Sys.time()
-fin-deb 
-#osm_france$relations$tags[osm_france$relations$tags$id == "2074461",]  
-#osm_france$relations$refs[osm_france$relations$refs$id == "2074461",]  
-
-
-#osm_france$ways$tags[osm_france$ways$tags$id %in% osm_france$relations$refs[osm_france$relations$refs$id == "2074461","ref"],]  
-#osm_france$relations$tag[osm_france$relations$ref$id == "FICTRAMREIMS",]  
-
-#############################
-#SAUVEGARDE DES FICHIERS OSM#
-#############################
-
-write_oms_table(osm_france,"Rail/dataosm_france_corr")
+write_oms_table(osm_france,"Rail/rail_osm_france")
 
 ###########################
 #Infrastructures cyclables#
