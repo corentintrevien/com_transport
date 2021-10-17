@@ -100,9 +100,9 @@ osm_parse <- function(doc){
     relations_tags <- NULL
   }
   
-  osmtables <- list(nodes = list(coords = nodes_coords, tags = nodes_tags),
-                    ways = list(tags = ways_tags, refs = ways_refs),
-                    relations = list(tags = relations_tags, refs = relations_refs))
+  osmtables <- list(nodes = list(coords = as.data.frame(nodes_coords), tags = as.data.frame(nodes_tags)),
+                    ways = list(tags = as.data.frame(ways_tags), refs = as.data.frame(ways_refs)),
+                    relations = list(tags = as.data.frame(relations_tags), refs = as.data.frame(relations_refs)))
   
   return(osmtables)
 }
@@ -168,7 +168,7 @@ download_regions_ign <- function(){
 
 #Permet de sélectionner les objets OSM présents partiellement ou totalement en France
 select_france <- function(osm_table){
-
+  
   #Carte de France
   download_regions_ign()
   region <- readOGR(paste0("IGN/",path_map_ign,"/REGION.shp"))
@@ -180,7 +180,7 @@ select_france <- function(osm_table){
   france <- gBuffer(france, byid=FALSE, width=0)
   france <- st_as_sf(france)
   france <- st_transform(france,crs=4326)
-
+  
   #Points OSM
   coords_osm <- st_as_sf(as.data.frame(osm_table$nodes$coords),coords=c("lon","lat"),crs=4326)
   coords_osm$france <- as.numeric(st_intersects(coords_osm,france))
@@ -189,13 +189,11 @@ select_france <- function(osm_table){
   #Sélection des nodes
   id_nodes_france <- coords_osm[coords_osm$france==1,]$id
   #Sélection des ways
-  count_ways <- plyr::count(osm_table$ways$refs[osm_table$ways$refs[,"ref"] %in% id_nodes_france ,"id"])
-  id_ways_france <- count_ways[count_ways$freq>1,"x"]
+  id_ways_france <- unique(osm_table$ways$refs[osm_table$ways$refs[,"ref"] %in% id_nodes_france,"id"])
   #Sélection des relations
-  count_relations <- plyr::count(osm_table$relations$refs[osm_table$relations$refs[,"ref"] %in% id_nodes_france |
-                                                      osm_table$relations$refs[,"ref"] %in% id_ways_france |
-                                                      osm_table$relations$refs[,"type"] == "relation","id"])
-  id_relations_france <- count_relations[count_relations$freq>1,"x"]
+  id_relations_france <- unique(osm_table$relations$refs[osm_table$relations$refs[,"ref"] %in% id_nodes_france |
+                                                           osm_table$relations$refs[,"ref"] %in% id_ways_france |
+                                                           osm_table$relations$refs[,"type"] == "relation","id"])
   #Nouvelles tables
   osm_table <- subset_osm_table(osm_table, id_nodes = id_nodes_france, id_ways = id_ways_france, id_relations = id_relations_france)
   osm_table$ways$refs <- osm_table$ways$refs[osm_table$ways$refs[,"ref"] %in% id_nodes_france,]
