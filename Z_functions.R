@@ -135,7 +135,7 @@ read_oms_table <- function(path){
   types_members <- list(c("nodes","coords"),c("nodes","tags"),c("ways","tags"),c("ways","refs"),
                         c("relations","tags"),c("relations","refs"))
   for(tm in types_members){
-    osm_tab[[tm[1]]][[tm[2]]] <- fread(paste0(path,'_',tm[1],'_',tm[2],'.csv.gz'),data.table=FALSE)
+    osm_tab[[tm[1]]][[tm[2]]] <- fread(paste0(path,'_',tm[1],'_',tm[2],'.csv.gz'),data.table=FALSE,colClasses = c("id"="character","ref"="character"))
   }
   return(osm_tab)
 }
@@ -186,19 +186,18 @@ select_france <- function(osm_table){
   coords_osm$france <- as.numeric(st_intersects(coords_osm,france))
   coords_osm[is.na(coords_osm$france),"france"] <- 0
   
-  #Sélection des nodes
+  #Sélection des nodes en France
   id_nodes_france <- coords_osm[coords_osm$france==1,]$id
-  #Sélection des ways
-  id_ways_france <- unique(osm_table$ways$refs[osm_table$ways$refs[,"ref"] %in% id_nodes_france,"id"])
-  #Sélection des relations
-  id_relations_france <- unique(osm_table$relations$refs[osm_table$relations$refs[,"ref"] %in% id_nodes_france |
-                                                           osm_table$relations$refs[,"ref"] %in% id_ways_france |
-                                                           osm_table$relations$refs[,"type"] == "relation","id"])
+  #Sélection des ways en France
+  id_ways_france <- unique(osm_table$ways$refs[osm_table$ways$refs$ref %in% id_nodes_france,]$id)
+  #Sélection des relations en France 
+  id_relations_france <- unique(osm_table$relations$refs[osm_table$relations$refs$ref %in% id_nodes_france |
+                                                           osm_table$relations$refs$ref %in% id_ways_france |
+                                                           osm_table$relations$refs$type == "relation",]$id)
   #Nouvelles tables
   osm_table <- subset_osm_table(osm_table, id_nodes = id_nodes_france, id_ways = id_ways_france, id_relations = id_relations_france)
-  osm_table$ways$refs <- osm_table$ways$refs[osm_table$ways$refs[,"ref"] %in% id_nodes_france,]
-  osm_table$relations$refs <- osm_table$relations$refs[osm_table$relations$refs[,"ref"] %in% id_nodes_france |
-                                                         osm_table$relations$refs[,"ref"] %in% id_ways_france,]
+  osm_table$ways$refs <- osm_table$ways$refs[osm_table$ways$refs$ref %in% id_nodes_france,]
+  osm_table$relations$refs <- osm_table$relations$refs[osm_table$relations$refs$ref %in% c(id_nodes_france,id_ways_france) ,]
   
   return(osm_table)
 }

@@ -65,11 +65,11 @@ osm_full <- list(france_railway_asc,france_railway_des,france_route_asc,france_r
 osm_full <- osm_table_fusion(osm_full)
 
 write_oms_table(osm_full,"Rail/rail_osm_full")
-
-osm_full$relations$refs[osm_full$relations$refs[,"id"]=="1662336",]
+osm_full <- read_oms_table("Rail/rail_osm_full")
 
 #Sélection des données situées en France 
 osm_france <- select_france(osm_full)
+
 
 #############
 #CORRECTIONS#
