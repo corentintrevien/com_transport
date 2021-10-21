@@ -195,11 +195,11 @@ if(nrow(refs_route_track_arret)>0){
 refs_route_arret <- rbind.fill(list(refs_route_arret_node,refs_route_arret_way,refs_route_track_arret))
 
 #Recherche d'un stop area pour tous les arr?ts
-id_stop_area <- osm_france$relations$tags[osm_france$relations$tags$k=="public_transport" & osm_france$relations$tags$v=="stop_area","id"]
+id_sarea <- osm_france$relations$tags[osm_france$relations$tags$k=="public_transport" & osm_france$relations$tags$v=="stop_area","id"]
 refs_stop_area <- osm_france$relations$refs 
-refs_stop_area <- refs_stop_area[refs_stop_area$id %in% id_stop_area,]
-refs_stop_area <- plyr::rename(refs_stop_area,replace= c(id="id_stop_area"))
-refs_route_arret[,"id_stop_area"] <- refs_stop_area[match(refs_route_arret$ref,refs_stop_area$ref),c("id_stop_area")]
+refs_stop_area <- refs_stop_area[refs_stop_area$id %in% id_sarea,]
+refs_stop_area <- plyr::rename(refs_stop_area,replace= c(id="id_sarea"))
+refs_route_arret[,"id_sarea"] <- refs_stop_area[match(refs_route_arret$ref,refs_stop_area$ref),c("id_sarea")]
 
 #Coordonn?es des arr?ts 
 refs_route_arret[,c("x","y")] <- osm_france$nodes$coords[match(refs_route_arret$id_node,osm_france$nodes$coords$id),c("x","y")]
@@ -208,7 +208,7 @@ refs_route_arret[,c("x","y")] <- osm_france$nodes$coords[match(refs_route_arret$
 centroid_refs_route_arret <- aggregate(cbind(x,y) ~ ref, data =  refs_route_arret[refs_route_arret$type=="way",],FUN = mean,na.rm= TRUE)
 centroid_refs_route_arret <- merge(centroid_refs_route_arret,
                                    refs_route_arret[refs_route_arret$type=="way" & duplicated(refs_route_arret$ref)==FALSE,
-                                                    c("id_route","ref","railway","public_transport","highway","building","role","type","id_stop_area","name"),],
+                                                    c("id_route","ref","railway","public_transport","highway","building","role","type","id_sarea","name"),],
                                    by = "ref")                                                            
 centroid_refs_route_arret$id_node <- paste("CRT",centroid_refs_route_arret$ref,sep="")
 refs_route_arret <- rbind.fill(list(refs_route_arret,centroid_refs_route_arret))
@@ -240,45 +240,45 @@ refs_route_arret$id_cluster <- paste(refs_route_arret$id_route,refs_route_arret$
 
 
 #CONSOLIDATION DES CLUSTER ET CREATION DE STOP_AREA_NEW
-new_stop_area <- count(refs_route_arret,c('id_node','id_cluster','id_stop_area','ref'))
-id_stop_area_new <- data.frame(id_cluster = unique(refs_route_arret$id_cluster))
-id_stop_area_new$id_stop_area_new <- paste("FICSA",str_pad(row.names(id_stop_area_new), 6, pad = "0"),sep="")
-new_stop_area$id_stop_area_new <- id_stop_area_new[match(new_stop_area$id_cluster,id_stop_area_new$id_cluster),"id_stop_area_new"]
+new_stop_area <- count(refs_route_arret,c('id_node','id_cluster','id_sarea','ref'))
+id_sarea_new <- data.frame(id_cluster = unique(refs_route_arret$id_cluster))
+id_sarea_new$id_sarea_new <- paste("FICSA",str_pad(row.names(id_sarea_new), 6, pad = "0"),sep="")
+new_stop_area$id_sarea_new <- id_sarea_new[match(new_stop_area$id_cluster,id_sarea_new$id_cluster),"id_sarea_new"]
 
 #replacement de l'identifiant fictif par un identifiant existant 
-new_stop_area$id_stop_area_new <- ifelse(is.na(new_stop_area$id_stop_area),
-                                         new_stop_area$id_stop_area_new,
-                                         new_stop_area$id_stop_area)
+new_stop_area$id_sarea_new <- ifelse(is.na(new_stop_area$id_sarea),
+                                         new_stop_area$id_sarea_new,
+                                         new_stop_area$id_sarea)
 
-#Un ref (node ou way) est dans un seul id_stop_area_new
+#Un ref (node ou way) est dans un seul id_sarea_new
 for(i in 1:999){
   print(i)
-  unique_id <- split(new_stop_area$id_stop_area_new,new_stop_area[,"ref"])
+  unique_id <- split(new_stop_area$id_sarea_new,new_stop_area[,"ref"])
   unique_id <- lapply(unique_id,unique)
   unique_id <- unique_id[unlist(lapply(unique_id,length)) > 1]
   if(length(unique_id)==0){break}
   unique_id <- lapply(unique_id,function(x) x[order(x)])
   unique_id <- unique_id[!duplicated(unique_id)] 
-  unique_id <- lapply(unique_id,function(x) data.frame(id_stop_area_unique = x[[1]],id_stop_area_new = x,stringsAsFactors = FALSE))
+  unique_id <- lapply(unique_id,function(x) data.frame(id_sarea_unique = x[[1]],id_sarea_new = x,stringsAsFactors = FALSE))
   unique_id <- do.call(rbind,unique_id)
-  new_stop_area$id_stop_area_unique <- unique_id[match(new_stop_area$id_stop_area_new,unique_id$id_stop_area_new),
-                                                 "id_stop_area_unique"]
-  new_stop_area$id_stop_area_new <- ifelse(is.na(new_stop_area$id_stop_area_unique),
-                                           new_stop_area$id_stop_area_new,
-                                           new_stop_area$id_stop_area_unique)
+  new_stop_area$id_sarea_unique <- unique_id[match(new_stop_area$id_sarea_new,unique_id$id_sarea_new),
+                                                 "id_sarea_unique"]
+  new_stop_area$id_sarea_new <- ifelse(is.na(new_stop_area$id_sarea_unique),
+                                           new_stop_area$id_sarea_new,
+                                           new_stop_area$id_sarea_unique)
 }
 
-new_stop_area <- new_stop_area[!duplicated(new_stop_area$id_node),c("id_node","id_stop_area_new")]
-refs_route_arret$id_stop_area_new <- new_stop_area[match(refs_route_arret$id_node,new_stop_area$id_node),"id_stop_area_new"]
+new_stop_area <- new_stop_area[!duplicated(new_stop_area$id_node),c("id_node","id_sarea_new")]
+refs_route_arret$id_sarea_new <- new_stop_area[match(refs_route_arret$id_node,new_stop_area$id_node),"id_sarea_new"]
 
-#refs_route_arret[refs_route_arret$id_stop_area_new == "FICSA007496",]
+#refs_route_arret[refs_route_arret$id_sarea_new == "FICSA007496",]
 #FICSA007509,4764967
 
 #SUPPRIMER LES DOUBLONS DE ROUTE -> MEMES STOPS DANS LE MEME ORDRE 
 
 #SELECTION DES STOP POUR CHAQUE CLUSTER
 
-#ETAPE 1 : Recherche d'un "stop" dans chaque id_stop_area_new  (Pr?voir ult?rieurement le cas o? toutes les stations sont dans un stop area)
+#ETAPE 1 : Recherche d'un "stop" dans chaque id_sarea_new  (Pr?voir ult?rieurement le cas o? toutes les stations sont dans un stop area)
 refs_route_arret$public_transport <- ifelse(is.na(refs_route_arret$public_transport),"",as.character(refs_route_arret$public_transport))
 refs_route_arret$railway <- ifelse(is.na(refs_route_arret$railway),"",as.character(refs_route_arret$railway))
 refs_route_arret$is_point_track <- refs_route_arret$id_node %in% osm_france$ways$refs[osm_france$ways$refs$id %in% unique(map_track$id_trk),]$ref 
@@ -287,18 +287,18 @@ refs_route_arret$is_stop <- ((refs_route_arret$railway %in% c("stop","tram_stop"
                                 substr(refs_route_arret$role,1,4)=="stop") &
                                refs_route_arret$is_point_track == TRUE)
 
-nb_stop <- plyr::count(refs_route_arret,c("id_stop_area_new","id_route","is_stop"))
-nb_stop <- data.frame(cast(nb_stop, id_stop_area_new + id_route ~ is_stop,value="freq"))
+nb_stop <- plyr::count(refs_route_arret,c("id_sarea_new","id_route","is_stop"))
+nb_stop <- data.frame(cast(nb_stop, id_sarea_new + id_route ~ is_stop,value="freq"))
 nb_stop <- rename(nb_stop,replace=c("TRUE."="nb_stop"))
-nb_stop <- subset(nb_stop,select=c("id_stop_area_new","id_route","nb_stop"))
+nb_stop <- subset(nb_stop,select=c("id_sarea_new","id_route","nb_stop"))
 nb_stop[is.na(nb_stop$nb_stop),"nb_stop"] <- 0
-refs_route_arret <- merge(refs_route_arret,nb_stop[,c("id_stop_area_new","id_route","nb_stop")],by = c("id_stop_area_new","id_route"))
+refs_route_arret <- merge(refs_route_arret,nb_stop[,c("id_sarea_new","id_route","nb_stop")],by = c("id_sarea_new","id_route"))
 
 missing_stop_etape1 <- nb_stop[nb_stop$nb_stop == 0,]
 
 #ETAPE 2 : Si toujours pas de "stop", on choisit le point appartenant aux tracks le plus proche du centroid du cluster
-ctr_stop_area_new <- aggregate(cbind(x,y) ~ id_stop_area_new , data =  refs_route_arret,FUN = mean )
-row.names(ctr_stop_area_new) <- ctr_stop_area_new$id_stop_area_new
+ctr_stop_area_new <- aggregate(cbind(x,y) ~ id_sarea_new , data =  refs_route_arret,FUN = mean )
+row.names(ctr_stop_area_new) <- ctr_stop_area_new$id_sarea_new
 ctr_stop_area_new <- rename(ctr_stop_area_new, replace= c(x="xctr",y="yctr"))
 ctr_stop_area_new <- SpatialPointsDataFrame(ctr_stop_area_new[,c("xctr","yctr")],ctr_stop_area_new,proj4string = CRS("+init=EPSG:3035"))
 
@@ -313,13 +313,13 @@ point_track[,c("x","y")] <- osm_france$nodes$coords[match(point_track$id_node,os
 #Fonction de recherche des points des stop_area_new sans stop
 find_proxy_node <- function(ident){
   #print(ident)
-  #ident <- unique(missing_stop_etape1$id_stop_area_new)[2]
+  #ident <- unique(missing_stop_etape1$id_sarea_new)[2]
   #ident <- "6363919"  # ->  CORRIGER LES RELATIONS AVEC DES TROUS
   #ident <- "6564104"
   #ident <- "FICSA013229"
   
-  id_route_missing <- unique(refs_route_arret[refs_route_arret$id_stop_area_new==ident,]$id_route)
-  missing_ctr <- coordinates(ctr_stop_area_new[ctr_stop_area_new$id_stop_area_new==ident,])
+  id_route_missing <- unique(refs_route_arret[refs_route_arret$id_sarea_new==ident,]$id_route)
+  missing_ctr <- coordinates(ctr_stop_area_new[ctr_stop_area_new$id_sarea_new==ident,])
   track_route_missing <- track_route[track_route$id_route %in% id_route_missing,]
   point_track_missing <- point_track[point_track$id_trk %in% track_route_missing$id_trk,]
   point_track_missing <- point_track_missing[abs(point_track_missing$x - missing_ctr[,"xctr"]) <= 1000,]
@@ -333,7 +333,7 @@ find_proxy_node <- function(ident){
     proxy_node_missing <- data.frame(id_route = id_route_missing[!(id_route_missing %in% proxy_node$id_route)],id_node = "MISSING",dist = 99999,x=NA,y=NA)
     proxy_node = rbind(proxy_node,proxy_node_missing)
   }
-  proxy_node$id_stop_area_new <- ident 
+  proxy_node$id_sarea_new <- ident 
   
   
   #ET PERMETTRE DE PROJETTER UNE LIGNE QUAND LE POINT EST TROP LOIN 
@@ -341,32 +341,32 @@ find_proxy_node <- function(ident){
   return(proxy_node)
 }
 
-search_stop_track <- lapply(unique(missing_stop_etape1$id_stop_area_new),find_proxy_node)
+search_stop_track <- lapply(unique(missing_stop_etape1$id_sarea_new),find_proxy_node)
 search_stop_track <- do.call(rbind,search_stop_track)
 
 found_stop <-  search_stop_track[search_stop_track$id_node != "MISSING",] 
 definitely_missing_stop <- search_stop_track[search_stop_track$id_node == "MISSING",] 
 
-stop_route <- rbind(refs_route_arret[refs_route_arret$is_stop==TRUE,c("id_stop_area_new","id_route","id_node","x","y")],
-                    found_stop[found_stop$dist<100,c("id_stop_area_new","id_node","id_route","x","y")])
+stop_route <- rbind(refs_route_arret[refs_route_arret$is_stop==TRUE,c("id_sarea_new","id_route","id_node","x","y")],
+                    found_stop[found_stop$dist<100,c("id_sarea_new","id_node","id_route","x","y")])
 
-stop_route <- rename(stop_route,replace = c(id_node = "id_stop",id_stop_area_new = "id_stop_area"))
+stop_route <- rename(stop_route,replace = c(id_node = "id_stop",id_sarea_new = "id_sarea"))
 
-name_stop <- count(refs_route_arret,c("id_stop_area_new","name"))
-name_stop <- rename(name_stop,replace = c(id_stop_area_new = "id_stop_area"))
+name_stop <- count(refs_route_arret,c("id_sarea_new","name"))
+name_stop <- rename(name_stop,replace = c(id_sarea_new = "id_sarea"))
 name_stop <- name_stop[!is.na(name_stop$name),]
-name_stop <- name_stop[order(name_stop$id_stop_area,-name_stop$freq),]
-name_stop <- name_stop[!duplicated(name_stop$id_stop_area),] 
+name_stop <- name_stop[order(name_stop$id_sarea,-name_stop$freq),]
+name_stop <- name_stop[!duplicated(name_stop$id_sarea),] 
 
-stop_route$name_stop <- name_stop[match(stop_route$id_stop_area,name_stop$id_stop_area),"name"]
+stop_route$name_stop <- name_stop[match(stop_route$id_sarea,name_stop$id_sarea),"name"]
 
-map_stop <- stop_route[!duplicated(stop_route$id_stop),c("id_stop_area","id_stop","name_stop","x","y")]
+map_stop <- stop_route[!duplicated(stop_route$id_stop),c("id_sarea","id_stop","name_stop","x","y")]
 row.names(map_stop) <- map_stop$id_stop
-map_stop <- SpatialPointsDataFrame(map_stop[,c("x","y")],map_stop,proj4string = CRS("+init=epsg:2154"))
+map_stop <- SpatialPointsDataFrame(map_stop[,c("x","y")],map_stop,proj4string = CRS("+init=epsg:3035"))
 
 #fwrite(data_route,"Rail/data_route.csv")
 fwrite(track_route,"Rail/track_route.csv")
-fwrite(stop_route[,c("id_stop_area","id_route","id_stop")],"Rail/stop_route.csv")
+fwrite(stop_route[,c("id_sarea","id_route","id_stop")],"Rail/stop_route.csv")
 #st_write(map_track,"Rail/map_track.shp",delete_dsn=TRUE) 
 map_track <- plyr::rename(map_track,c("importance"="import"))
 map_track$name <- with(map_track,ifelse(is.na(name),name_line,name))
@@ -375,11 +375,10 @@ writeOGR(as(map_track,"Spatial"),"Rail/map_track.shp",layer = "map_stop", driver
 writeOGR(map_stop,"Rail/map_stop.shp",layer = "map_stop", driver="ESRI Shapefile",overwrite_layer = TRUE)
 
 #########################################################################################
-map_track <- st_read("Rail/map_track.shp",colClasses = c("id"="character","ref"="character"))
+map_track <- st_read("Rail/map_track.shp")
 map_stop <- st_read("Rail/map_stop.shp")
-track_route <- fread("Rail/track_route.csv")
-stop_route <- fread("Rail/track_route.csv")
-fwrite(stop_route[,c("id_stop_area","id_route","id_stop")],"Rail/stop_route.csv")
+track_route <- fread("Rail/track_route.csv",colClasses = c("id_trk"="character","id_route"="character"))
+stop_route <- fread("Rail/stop_route.csv",colClasses = "character")
 
 path_map_ign <- "ADMIN-EXPRESS-COG_2-1__SHP__FRA_2020-11-20/ADMIN-EXPRESS-COG/1_DONNEES_LIVRAISON_2020-11-20/ADE-COG_2-1_SHP_WGS84G_FRA"
 download_regions_ign()
