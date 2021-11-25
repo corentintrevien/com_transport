@@ -1,34 +1,60 @@
-library("data.table")
-library("sf")
-library("plyr")
+library("curl")
+library("archive")
 library("dplyr")
+library("data.table")
+library("plyr")
+library("purrr")
 
-iso_gares_pieton_1000m <- fread("Iso/iso_gares_pieton_1000m.csv.gz")
-iso_gares_pieton_1000m$dist  <- 1000
-iso_gares_pieton_500m <- fread("Iso/iso_gares_pieton_500m.csv.gz")
-iso_gares_pieton_500m$dist  <- 500
-iso_gares_pieton_1500m <- fread("Iso/iso_gares_pieton_1500m.csv.gz")
-iso_gares_pieton_1500m$dist  <- 1500
-iso_gares_pieton <- rbindlist(list(iso_gares_pieton_500m,iso_gares_pieton_1000m,iso_gares_pieton_1500m))
-#Carreaux des stations
-map_stop <- st_read("Rail/map_stop.shp")
-st_crs(map_stop) <- 3035
-map_stop <- st_transform(map_stop,crs=4326)
-map_stop$car <- paste0("N",with(map_stop,paste(floor(y/200)*200,floor(x/200)*200,sep = "E")))
+#Téléchargement des carreaux Insee 
 
-#Stat d'accessibilité par station (vérification)
-stat_station <- dcast(data=iso_gares_pieton,car_dep~paste0("car_dist_",dist),fun.aggregate = length)
-map_stop <- left_join(map_stop,plyr::rename(stat_station,c("car_dep"="car")))
-map_stop <- map_stop[order(map_stop$car_dist_500),]
-quantile(map_stop,map_stop$)
+if(!file.exists(paste0("Insee/Filosofi2015_carreaux_200m_csv.zip"))){
+  dir.create("Insee")
+  curl_download("https://www.insee.fr/fr/statistiques/fichier/4176290/Filosofi2015_carreaux_200m_csv.zip",
+                "Insee/Filosofi2015_carreaux_200m_csv.zip", mode="wb")
+}
 
- c(5.716888 45.19882)
+unzip("Insee/Filosofi2015_carreaux_200m_csv.zip",
+      files="Filosofi2015_carreaux_200m_metropole_csv.7z",exdir="Insee")
+archive_extract("Insee/Filosofi2015_carreaux_200m_metropole_csv.7z",dir="Insee")
+car_filosofi_metro <- fread("Insee/Filosofi2015_carreaux_200m_metropole.csv")
+colnames(car_filosofi_metro) <- tolower(colnames(car_filosofi_metro))
+car_filosofi_metro <- plyr::rename(car_filosofi_metro,c("ind"='pop'))
+file.remove("Insee/Filosofi2015_carreaux_200m_metropole_csv.7z")
+file.remove("Insee/Filosofi2015_carreaux_200m_metropole.csv")
+
+#Indicateurs communaux
+com_filosofi <- dcast(data=car_filosofi_metro ,depcom~ 1,value.var = c("pop","men","men_pauv"),fun.aggregate = sum)
   
-car_depart <- 
-get_iso_car(car_depart="N2463600E3984000",duradist= 1000,method='distance',mode='pedestrian')
-get_iso_car(car_depart="N2463600E3984000",duradist= 1000,method='distance',mode='pedestrian')
-get_iso_car(car_depart="N2463600E3984000",duradist= 1000,method='distance',mode='pedestrian')
-get_iso_car("N2463600E3984000",1000,method='distance',mode='pedestrian')
+#Carreaux transports
+stop_route_iso <- fread("Iso/stop_route_iso.csv.gz")
+stop_route_iso$idinspire <- paste0("CRS3035RES200m",stop_route_iso$car)
+stop_route_iso <- stop_route_iso[,c("route","idinspire","dist")]
+stop_route_iso$route <- revalue(as.factor(stop_route_iso$route),c("subway"="metro","light_rail"="train"))
+#Tram et métro réunis 
+stop_route_iso2 <- stop_route_iso
+stop_route_iso2$route <- revalue(as.factor(stop_route_iso2$route),c("metro"="metro_tram","tram"="metro_tram"))
+stop_route_iso2 <- aggregate(data=stop_route_iso2,dist~route+idinspire,FUN=min)
+#Tous modes rénunis 
+stop_route_iso3 <- stop_route_iso2
+stop_route_iso3$route <- revalue(as.factor(stop_route_iso3$route),c("metro_tram"="tcf","train"="tcf"))
+stop_route_iso3 <- aggregate(data=stop_route_iso3,dist~route+idinspire,FUN=min)
+#Réunion des trois tables
+stop_route_iso <- rbind(stop_route_iso,stop_route_iso2,stop_route_iso3)
+#Population des carreaux
+stop_route_iso <- inner_join(stop_route_iso,car_filosofi_metro[,c("idinspire","depcom","pop","men","men_pauv")])
+#Indicateurs communaux 
+com_filosofi_trans <- dcast(data=stop_route_iso ,depcom~route+dist ,value.var = c("pop","men","men_pauv"),fun.aggregate = sum)
+com_filosofi_trans <- full_join(com_filosofi_trans,com_filosofi)
+com_filosofi_trans[is.na(com_filosofi_trans)] <- 0  
+#Part de la population communale 
+list_var <- lapply(cross2(c("train","tcf","tram","metro","metro_tram"),c("500","1000","1500")),paste,collapse="_")
+for(v in list_var){
+  print(v)
+  com_filosofi_trans[[paste0("men_",v)]] <- round(com_filosofi_trans[[paste0("men_",v)]]/com_filosofi_trans[["men"]],3)
+  com_filosofi_trans[[paste0("men_pauv_",v)]] <- round(com_filosofi_trans[[paste0("men_pauv_",v)]]/com_filosofi_trans[["men_pauv"]],3)
+  com_filosofi_trans[[paste0("pop_",v)]] <- round(com_filosofi_trans[[paste0("pop_",v)]]/com_filosofi_trans[["pop"]],3)
+}
+#Enregistrement 
+fwrite(com_filosofi_trans,"Rail/indicateurs_communaux.csv")
 
- 
-lon_lat_depart <- c(x=as.numeric(substr(car_depart,10,16))+100,y =as.numeric(substr(car_depart,2,8))+100)
+
