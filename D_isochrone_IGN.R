@@ -1,18 +1,21 @@
 library("data.table")
 library("rjson")
 library("httr")
+library("rgdal")
 library("raster")
 library("fasterize")
 library("sf")
 library("dplyr")
 library("curl")
 library("archive")
+
 #library("gitcreds")
 #gitcreds_set()
 
 
 options(scipen=15)
 #method <- "time"|"distance"
+#Unités <- secondes (?) ou mètres
 #mode <- "car"|"pedestrian"
 mode <- 'pedestrian'
 method='distance'
@@ -83,6 +86,11 @@ get_iso_car <- function(coord_depart,duradist,mode,method){
 
 #get_iso_car(c(2.347820932099209,48.82976328107956),duradist=1000,method='distance',mode='pedestrian')
 
+test <- get_iso_car(c(2.347820932099209,48.82976328107956),duradist=1000,method='distance',mode='pedestrian')
+test <- get_iso_car(c(2.347820932099209,48.82976328107956),duradist=600,method='time',mode='pedestrian')
+test <- get_iso_car(c(2.347820932099209,48.82976328107956),duradist=600,method='time',mode='car')
+
+
 #Carreaux des stations
 map_stop <- st_read("Rail/map_stop.shp")
 st_crs(map_stop) <- 3035
@@ -90,6 +98,7 @@ map_stop <- st_transform(map_stop,crs=4326)
 map_stop$car <- from_gps_to_car(st_coordinates(map_stop))
 map_stop[,c("lon","lat")] <- st_coordinates(map_stop)
 
+plot(st_geometry(map_stop),pch=".")
 #Etape 1 : géolocalisation par carreau
 car_stop <- unique(map_stop$car)
 coord_car_stop <- from_car_to_gps(car_stop)

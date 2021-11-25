@@ -23,26 +23,6 @@ car_filosofi_metro <- plyr::rename(car_filosofi_metro,c("ind"='pop'))
 file.remove("Insee/Filosofi2015_carreaux_200m_metropole_csv.7z")
 file.remove("Insee/Filosofi2015_carreaux_200m_metropole.csv")
 
-=======
-
-#Téléchargement des carreaux Insee 
-
-if(!file.exists(paste0("Insee/Filosofi2015_carreaux_200m_csv.zip"))){
-  dir.create("Insee")
-  curl_download("https://www.insee.fr/fr/statistiques/fichier/4176290/Filosofi2015_carreaux_200m_csv.zip",
-                "Insee/Filosofi2015_carreaux_200m_csv.zip", mode="wb")
-}
-
-unzip("Insee/Filosofi2015_carreaux_200m_csv.zip",
-      files="Filosofi2015_carreaux_200m_metropole_csv.7z",exdir="Insee")
-archive_extract("Insee/Filosofi2015_carreaux_200m_metropole_csv.7z",dir="Insee")
-car_filosofi_metro <- fread("Insee/Filosofi2015_carreaux_200m_metropole.csv")
-colnames(car_filosofi_metro) <- tolower(colnames(car_filosofi_metro))
-car_filosofi_metro <- plyr::rename(car_filosofi_metro,c("ind"='pop'))
-file.remove("Insee/Filosofi2015_carreaux_200m_metropole_csv.7z")
-file.remove("Insee/Filosofi2015_carreaux_200m_metropole.csv")
-
->>>>>>> 456c69d0219f94eecded5116c67c67499d462d8b
 #Indicateurs communaux
 com_filosofi <- dcast(data=car_filosofi_metro ,depcom~ 1,value.var = c("pop","men","men_pauv"),fun.aggregate = sum)
   
@@ -77,8 +57,5 @@ for(v in list_var){
 }
 #Enregistrement 
 fwrite(com_filosofi_trans,"Rail/indicateurs_communaux.csv")
-<<<<<<< HEAD
-=======
 
->>>>>>> 456c69d0219f94eecded5116c67c67499d462d8b
 
