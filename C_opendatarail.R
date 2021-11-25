@@ -1,15 +1,18 @@
 library(stringr)
 library(plyr)
+library(rjson)
+library(curl)
+library(httr)
+
 list.files("OpenDataTransport")
 source("Z_functions.R")
-
 
 #Données Transport.data.gouv.fr : tous les réseaux ferroviaires/tram/métro de France 
 #(sauf tram de Genève et tram train Sarrebuck)
 
 list_files <- list.files("OpenDataTransport")
 list_files <- list_files[list_files != "SNCF"]
-f <- "Intercites"
+f <- "TER"
 
 import_stops <- lapply(list_files,function(f){
   print(f)
@@ -64,7 +67,6 @@ stops <- setDT(stops)
 
 #Conversion au format cartographique
 map_stops <- st_as_sf(stops, coords = c("stop_lon", "stop_lat"), crs = 4326, agr = "constant")
-
 #sélection des stations en France
 region <- readOGR(paste0("IGN/",path_map_ign,"/REGION.shp"))
 region <- region[!region$NOM_REG %in% c("Guadeloupe","Martinique","Mayotte","La Réunion","Guyane"),]
@@ -78,53 +80,6 @@ map_stops <- map_stops[!is.na(map_stops$region),]
 plot(st_geometry( map_stops[map_stops$route_type ==0,]),pch=".")
 plot(st_geometry( map_stops[map_stops$route_type ==1,]),pch=".")
 plot(st_geometry( map_stops[map_stops$route_type ==2,]),pch=".")
-
-#Distance max entre les stations ayant le même identifiant
-map_stops <- map_stops[map_stops$source != "Transilien",]
-distance_stations <- st_distance(map_stops,map_stops)
-quantile(apply(distance_stations,2,function(d) min(d[d != 0 ])),probs=0:10/10)
-
-#Données SNCF open data
-url_sncf <- "https://ressources.data.sncf.com/explore/dataset/referentiel-gares-voyageurs/download/?format=geojson&timezone=Europe/Berlin&lang=fr"
-resp <- GET(url_sncf, encoding = "UTF-8")
-gares_json <- fromJSON(content(resp, "text", encoding = "UTF-8"))
-
-gares_data <- lapply(gares_json$features,function(g){ 
-  coord <- g$geometry$coordinates
-  if(is.null(coord)){coord <- NA}
-  return(data.frame(stop_id = g$properties$uic_code,code_gare = g$properties$code_gare,
-             stop_lon = coord[1],stop_lat = coord[2],
-             stop_name = g$properties$gare_alias_libelle_noncontraint))})
-
-gares_data <- rbindlist(gares_data)
-gares_data$stop_id <- as.character(as.numeric(gares_data$stop_id))
-gares_data <- gares_data[!is.na(stop_lon),]
-#Conversion au format cartographique
-map_gares <- st_as_sf(gares_data, coords = c("stop_lon", "stop_lat"), crs = 4326, agr = "constant")
-
-
-plot(st_geometry(map_gares),pch=".")
-plot(st_geometry(map_gares[!map_gares$stop_id %in% unique(stops[route_type==2,]$stop_id),]),pch=".",add=T,col="red")
-
-
-
-
-
-
-
-library(geojsonR)
-test <- FROM_GeoJson(url_file_string = )
-#Données SNCF (en complément)
-gares_SNCF  <- st_read("OpenDataTransport/SNCF/referentiel-gares-voyageurs.shp")
-gares_SNCF
-
-
-
-dist_id <- split(stops[source != "Transilien",],stops[source != "Transilien",]$stop_id)
-
-
-dist_id <- lapply(dist_id, st_as_sf,coords = c("stop_lon", "stop_lat"), crs = 4326, agr = "constant")
-
 pdf("Verif.pdf")
 for(s in list_files){
   print(s)
@@ -135,79 +90,60 @@ for(s in list_files){
 }
 dev.off()
 
-##############################################################################################################################
+########################
+#Données SNCF open data#
+########################
 
-#Données ferroviaires OpenStreetMap 
-map_stop_OSM <- st_read("Rail/map_stop.shp")
-st_crs(map_stop_OSM) <- 3035
-map_stop_OSM <- st_transform(map_stop_OSM,crs=4326)
-
-route <- inner_join(fread("Rail/data_route.csv")[,c("id_route","route")],fread("Rail/stop_route.csv",colClasses = "character")[,c("id_stop","id_route")])
-route <- route[route %in% c("train","light_rail"), ]
-map_stop_OSM <- map_stop_OSM[map_stop_OSM$id_stop %in% route$id_stop,]
-
-#Région d'appartenance
-
-
-#Gares SNCF 
-distance_SNCF_OSM <- st_distance(gares_SNCF,map_stop_OSM)
-gares_SNCF$dist_OSM <- apply(distance_SNCF_OSM,1,min)
+if(!file.exists("Rail/Gares_opendata_sncf.csv.gz")){
+  url_sncf <- "https://ressources.data.sncf.com/explore/dataset/referentiel-gares-voyageurs/download/?format=geojson&timezone=Europe/Berlin&lang=fr"
+  resp <- GET(url_sncf, encoding = "UTF-8")
+  gares_json <- fromJSON(content(resp, "text", encoding = "UTF-8"))
   
-gares_SNCF$region <- as.numeric(st_intersects(gares_SNCF,region))
-gares_SNCF$region <- region$NOM_REG[gares_SNCF$region ]
-gares_SNCF <- gares_SNCF[!is.na(gares_SNCF$region),]
+  "PARIS LA VILLETTE EST PIERRE"
+  
+  gares_data <- lapply(gares_json$features,function(g){ 
+    print(g$properties$uic_code)
+    gdata <- g$properties
+    gdata <- gdata[names(gdata) %in% c("uic_code","code_gare","gare_agencegc_libelle","gare_regionsncf_libelle",
+                                       "gare_alias_libelle_noncontraint")]
+    gdata <- as.data.frame(gdata)
+    gdata[,c("stop_lon","stop_lat")] <-  g$geometry$coordinates
+    gdata <- plyr::rename(gdata,c("uic_code"="stop_id","gare_alias_libelle_noncontraint"="stop_name",
+                                  "gare_agencegc_libelle"="agence_sncf",
+                                  "gare_regionsncf_libelle"="region_sncf"))
+    return(gdata)})
+  
+  gares_data <- rbind.fill(gares_data)
+  gares_data$stop_id <- as.character(as.numeric(gares_data$stop_id))
+  gares_data <- gares_data[!is.na(gares_data$stop_lon),]
+  fwrite(gares_data,"Rail/Gares_opendata_sncf.csv.gz")}
 
-map_stop_OSM$dist_SNCF <-  apply(distance_SNCF_OSM,2,min,na.rm=T)
-plot(st_geometry(gares_SNCF),pch=".",lwd=.1)
-plot(st_geometry(gares_SNCF[gares_SNCF$dist_OSM>=200,]),pch=".",lwd=.2,col="red",add=T)
+gares_data <- fread("Rail/Gares_opendata_sncf.csv.gz")
+sncf_map <- st_as_sf(gares_data, coords = c("stop_lon", "stop_lat"), crs = 4326, agr = "constant")
 
-plot(st_geometry(map_stop_OSM),pch=".",lwd=.1)
-plot(st_geometry(map_stop_OSM[map_stop_OSM$dist_SNCF>=200,]),pch=".",lwd=.2,col="red",add=T)
-plot(st_geometry(gares_SNCF[gares_SNCF$gare_alias_=="Surdon",]),pch=".",col="green",add=T)
+#sélection des stations en France
+sncf_map$region <- as.numeric(st_intersects(sncf_map,region))
+sncf_map$region <- region$NOM_REG[sncf_map$region ]
+sncf_map <- sncf_map[!is.na(sncf_map$region),]
 
+#Manifestement, certains cars TER sont codés en TRAIN, on utilise donc les gares ferroviaires de l'open data SNCF
+#Hors IDF pour ne pas faire doublon avec les données IDFM (plus complètes que celle de la SNCF)
 
-plot(st_geometry(map_stop_OSM[map_stop_OSM$region =="Île-de-France",]),pch=".",lwd=.1)
-plot(st_geometry(map_stop_OSM[map_stop_OSM$dist_SNCF>=200 & map_stop_OSM$region =="Île-de-France",]),pch=".",lwd=.2,col="red",add=T)
-plot(st_geometry(gares_SNCF[gares_SNCF$dist_OSM>=200 & gares_SNCF$region =="Île-de-France",]),pch=".",lwd=.2,col="green",add=T)
+map_stops <- map_stops[!map_stops$source %in% c("TER","Intercites","TGV","Transilien") ,]
+sncf_map <- sncf_map[sncf_map$region != "Île-de-France" & sncf_map$agence_sncf != "Direction Générale des Gares Île-de-France" ,]
+sncf_map$route_type <- 2
+sncf_map$source <- "SNCF"
 
-#AJouter les stations de RER RATP 
-#Retirer les stations 
-  fread("OpenDataTransport/referentiel-gares-voyageurs.csv")
-gares_sncf[,c("lon","lat")] <- as.data.frame(lapply(do.call(rbind,str_split(gares_sncf$`WGS 84`,',')),as.numeric))
+map_station_gare <- rbind(map_stops,subset(sncf_map,select=-c(agence_sncf,region_sncf,code_gare)))
+#Cartes de vérification
+pdf("Verif2.pdf")
+  plot(st_geometry( map_station_gare[map_station_gare$route_type ==0,]),pch=".",main="Tramway")
+  plot(st_geometry( map_station_gare[map_station_gare$route_type ==1,]),pch=".",main="Métro")
+  plot(st_geometry( map_station_gare[map_station_gare$route_type ==2,]),pch=".",main="Train")
+dev.off()
 
+map_station_gare$type <-ifelse(map_station_gare$route_type==1,"Métro","")
+map_station_gare$type <-ifelse(map_station_gare$route_type==0,"Tramway",map_station_gare$type)
+map_station_gare$type <-ifelse(map_station_gare$route_type==2,"Train",map_station_gare$type)
 
-list_files <- c("Corse","IDFM","Intercites","Provence", "TGV" ,"TER")          
-list_files <- c("Corse","IDFM","Intercites","Provence", "TGV" ,"TER")   
-
-
-
-
-
-#Retrait des gares à l'étranger 
-region <- readOGR(paste0("IGN/",path_map_ign,"/REGION.shp"))
-region <- region[!region$NOM_REG %in% c("Guadeloupe","Martinique","Mayotte","La Réunion","Guyane"),]
-region <- st_as_sf(region)
-
-map_stops$region <- as.numeric(st_intersects(map_stops,region))
-map_stops$region <- region$NOM_REG[map_stops$region ]
-map_stops <- map_stops[!is.na(map_stops$region),]
-
-mean(duplicated(map_stops[map_stops$source %in% c("Transilien","TER","IDFM"),]$stop_id))
-
-map_stops[map_stops$source %in% "Transilien",]$stop_id[!map_stops[map_stops$source %in% "Transilien",]$stop_id %in% unique(map_stops[map_stops$source != "Transilien",]$stop_id)]
-map_stops[map_stops$stop_id == "471039",]
-map_stops[map_stops$stop_name == "Melun",]
-
-#En Ile-de-France : les deux lignes de tram de la SNCF 
-distance_OSM_OpenData <- st_distance(map_stops,map_stop_OSM)
-map_stops$min_dist_OSM <- apply(distance_OSM_OpenData,1,min)
-map_stop_OSM$min_dist_OpenData <- apply(distance_OSM_OpenData,2,min)
-
-plot(st_geometry(map_stop_OSM),pch=".",lwd=.1)
-plot(st_geometry(map_stop_OSM[map_stop_OSM$min_dist_OpenData>=200,]),pch=".",lwd=.2,col="red",add=T)
-
-quantile(map_stops$min_dist_OSM,probs=90:100/100)
-plot(st_geometry(map_stops),pch=".",lwd=.1)
-plot(st_geometry(map_stops[map_stops$min_dist_OSM>=200,]),pch=".",lwd=.2,col="red",add=T)
-
-map_stops[map_stops$min_dist_OSM>=200 & map_stops$region == "Île-de-France",]$stop_name
+st_write(map_station_gare,"Rail/station_gare_opendata.shp")
