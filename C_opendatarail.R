@@ -51,7 +51,7 @@ import_stops <- lapply(list_files,function(f){
   stops <- fread(paste0("OpenDataTransport/",f,"/stops.txt"),colClasses = c("stop_id"="character"))
   #Stations ferroviaires
   stops <- right_join(stops,stop_times)
-  if(f %in% c("TER","Intercites")){stops$stop_id <- unlist(lapply(strsplit(stops$stop_id,"-"),function(s) s[[length(s)]]))}
+  if(f %in% c("TER","Intercites","TGV")){stops$stop_id <- unlist(lapply(strsplit(stops$stop_id,"-"),function(s) s[[length(s)]]))}
   stops$stop_id <- unlist(lapply(strsplit(stops$stop_id,":"),function(s) s[[length(s)]]))
   stops <- subset(stops,select=c(stop_id,stop_name,stop_lat,stop_lon,route_type))
   stops <- stops[!duplicated(stops[,c("stop_id","route_type")]),]
@@ -119,22 +119,29 @@ if(!file.exists("Rail/Gares_opendata_sncf.csv.gz")){
   fwrite(gares_data,"Rail/Gares_opendata_sncf.csv.gz")}
 
 gares_data <- fread("Rail/Gares_opendata_sncf.csv.gz")
+gares_data <- gares_data[!is.na(gares_data$stop_lon) & !is.na(gares_data$stop_lat),]
 sncf_map <- st_as_sf(gares_data, coords = c("stop_lon", "stop_lat"), crs = 4326, agr = "constant")
+plot(st_geometry(sncf_map))
 
 #sélection des stations en France
 sncf_map$region <- as.numeric(st_intersects(sncf_map,region))
 sncf_map$region <- region$NOM_REG[sncf_map$region ]
 sncf_map <- sncf_map[!is.na(sncf_map$region),]
+#Tag des gares grande ligne 
+sncf_map$TGV <- as.numeric(sncf_map$stop_id %in% map_stops[map_stops$source=="TGV",]$stop_id)
+sncf_map$Intercites <- as.numeric(sncf_map$stop_id %in% map_stops[map_stops$source=="Intercites",]$stop_id)
 
 #Manifestement, certains cars TER sont codés en TRAIN, on utilise donc les gares ferroviaires de l'open data SNCF
 #Hors IDF pour ne pas faire doublon avec les données IDFM (plus complètes que celle de la SNCF)
 
-map_stops <- map_stops[!map_stops$source %in% c("TER","Intercites","TGV","Transilien") ,]
-sncf_map <- sncf_map[sncf_map$region != "Île-de-France" & sncf_map$agence_sncf != "Direction Générale des Gares Île-de-France" ,]
+map_stops$TGV <- as.numeric(map_stops$source=="TGV")
+map_stops$Intercites <- as.numeric(map_stops$source=="Intercites")
 sncf_map$route_type <- 2
 sncf_map$source <- "SNCF"
 
-map_station_gare <- rbind(map_stops,subset(sncf_map,select=-c(agence_sncf,region_sncf,code_gare)))
+map_station_gare <- rbind(map_stops[!map_stops$source %in% c("TER","Intercites","TGV","Transilien") ,],
+                          subset(sncf_map[sncf_map$region != "Île-de-France" & sncf_map$agence_sncf != "Direction Générale des Gares Île-de-France" ,]
+                                 ,select=-c(agence_sncf,region_sncf,code_gare)))
 #Cartes de vérification
 pdf("Verif2.pdf")
   plot(st_geometry( map_station_gare[map_station_gare$route_type ==0,]),pch=".",main="Tramway")
@@ -142,8 +149,12 @@ pdf("Verif2.pdf")
   plot(st_geometry( map_station_gare[map_station_gare$route_type ==2,]),pch=".",main="Train")
 dev.off()
 
-map_station_gare$type <-ifelse(map_station_gare$route_type==1,"Métro","")
-map_station_gare$type <-ifelse(map_station_gare$route_type==0,"Tramway",map_station_gare$type)
-map_station_gare$type <-ifelse(map_station_gare$route_type==2,"Train",map_station_gare$type)
+map_station_gare$type <-ifelse(map_station_gare$route_type==0,"tram","")
+map_station_gare$type <-ifelse(map_station_gare$route_type==1,"metro",map_station_gare$type )
+map_station_gare$type <-ifelse(map_station_gare$route_type==2,"train",map_station_gare$type)
 
-st_write(map_station_gare,"Rail/station_gare_opendata.shp")
+st_write(map_station_gare,"Rail/station_gare_opendata.shp",delete_dsn=T)
+
+
+
+
