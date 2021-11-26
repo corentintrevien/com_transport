@@ -49,6 +49,7 @@ from_gps_to_car<- function(coord){
   return(coord_laea$car)
 } 
 
+#Récupérer les carreaux accessibles depuis un point
 get_iso_car <- function(coord_depart,duradist,mode,method){
   coord_depart <- as.numeric(coord_depart)
   coord_depart <- round(coord_depart,digits=5)
@@ -91,20 +92,9 @@ test <- get_iso_car(c(2.347820932099209,48.82976328107956),duradist=600,method='
 test <- get_iso_car(c(2.347820932099209,48.82976328107956),duradist=600,method='time',mode='car')
 
 
-#Carreaux des stations
-map_stop <- st_read("Rail/map_stop.shp")
-st_crs(map_stop) <- 3035
-map_stop <- st_transform(map_stop,crs=4326)
-map_stop$car <- from_gps_to_car(st_coordinates(map_stop))
-map_stop[,c("lon","lat")] <- st_coordinates(map_stop)
 
-plot(st_geometry(map_stop),pch=".")
-#Etape 1 : géolocalisation par carreau
-car_stop <- unique(map_stop$car)
-coord_car_stop <- from_car_to_gps(car_stop)
-
+#Récupérer une liste de carreaux depuis un point (en entrée : une table avec deux colonnes)
 iso_data_coord <- function(data_coord,duradist,mode="pedestrian",method="distance",dirout,file){
-  
   #Mise en forme de la table
   colnames(data_coord) <- c("lon_dep","lat_dep")
   data_coord <- as.data.table(data_coord[,1:2])
@@ -139,55 +129,108 @@ iso_data_coord <- function(data_coord,duradist,mode="pedestrian",method="distanc
   
 }
   
-#Chargement des isochrones pour différentes distances (à partir des carreaux)
-iso_data_coord(coord_car_stop,duradist=500,mode="pedestrian",method="distance",dirout="Iso",file="isodist_gares_pieton_500m")
-iso_data_coord(coord_car_stop,duradist=1000,mode="pedestrian",method="distance",dirout="Iso",file="isodist_gares_pieton_1000m")
-iso_data_coord(coord_car_stop,duradist=1500,mode="pedestrian",method="distance",dirout="Iso",file="isodist_gares_pieton_1500m")
+#Réécriture du programme avec des données OpenData (SNCF et transport.data.gouv.fr)
+map_station_gare <- st_read("Rail/station_gare_opendata.shp")
+map_station_gare[,c("lon","lat")] <- st_coordinates(map_station_gare)
+map_station_gare$lon <- round(map_station_gare$lon,digits = 5)
+map_station_gare$lat <- round(map_station_gare$lat,digits = 5)
 
-#Chargement des isochrones pour différentes distances (à partir des coordonnées exactes)
-iso_data_coord(st_coordinates(map_stop),duradist=500,mode="pedestrian",method="distance",dirout="Iso",file="isodist_xy_gares_pieton_500m")
-iso_data_coord(st_coordinates(map_stop),duradist=1000,mode="pedestrian",method="distance",dirout="Iso",file="isodist_xy_gares_pieton_1000m")
-iso_data_coord(st_coordinates(map_stop),duradist=1500,mode="pedestrian",method="distance",dirout="Iso",file="isodist_xy_gares_pieton_1500m")
-
-#Nombre carreaux accessibles (agrégation des résultats )
-dist_car_xy <- lapply(c(500,1000,1500),function(dist){
-  car_dist <- fread(paste0("Iso/isodist_xy_gares_pieton_",dist,"m.csv.gz"))
-  car_dist <- car_dist[!duplicated(car_dist),]
-  car_dist$dist <- dist
-  return(car_dist)
-})
-dist_car_xy <- rbindlist(dist_car_xy)
-dist_car_xy <- subset(dist_car_xy, car != "NNaNENaN" & car_dep != "", select=-c(lon_dep,lat_dep))
-dist_car_xy <- dcast(data=dist_car_xy,car+car_dep~1,value.var = "dist", fun.aggregate =min)
-dist_car_xy <- plyr::rename(dist_car_xy,c("."="dist_car_xy"))
-
-#Isochrone à partir du carreau de la station
-dist_car <- lapply(c(500,1000,1500),function(dist){
-  car_dist <- fread(paste0("Iso/isodist_gares_pieton_",dist,"m.csv.gz"))
-  car_dist <- car_dist[!duplicated(car_dist),]
-  car_dist$dist <- dist
-  return(car_dist)
-})
-dist_car <- rbindlist(dist_car)
-dist_car <- subset(dist_car, car != "NNaNENaN" & car_dep != "", select=-c(lon_dep,lat_dep))
-dist_car <- dcast(data=dist_car,car+car_dep~1,value.var = "dist", fun.aggregate =min)
-dist_car <- plyr::rename(dist_car,c("."="dist_car"))
-
-#Réunion des deux méthodes
-dist_car_full <- full_join(dist_car,dist_car_xy)
-dist_car_full[is.na(dist_car_full)] <- 9999
-dist_car_full$dist <- with(dist_car_full,pmin(dist_car,dist_car_xy))
-
-#Distance des carreaux à chaque moyen de transport 
-stop_route <- inner_join(st_drop_geometry(map_stop)[,c("id_stop","car")],
-                         fread("Rail/stop_route.csv",colClasses = "character")[,c("id_stop","id_route")])
-stop_route <- inner_join(stop_route,fread("Rail/data_route.csv")[,c("id_route","route")])
-stop_route <- stop_route[,c("car","route")]
-stop_route <- stop_route[!duplicated(stop_route),]
+coords_station_gare <- st_drop_geometry(map_station_gare[,c("lon","lat")])
+coords_station_gare <- coords_station_gare[!duplicated(coords_station_gare),]
   
-stop_route_iso <- inner_join(plyr::rename(stop_route,c("car"="car_dep")),dist_car_full[,c("car_dep","car","dist")])
+#Ne pas hésiter à faire tourner deux fois si certaines requêtes ne sont pas passées 
+iso_data_coord(coords_station_gare,duradist=600,mode="pedestrian",method="time",dirout="Iso",file="isodist_gares_pieton_10min")
+iso_data_coord(coords_station_gare,duradist=600,mode="car",method="time",dirout="Iso",file="isodist_gares_voiture_10min")
 
-fwrite(stop_route_iso,"Iso/stop_route_iso.csv.gz")
+iso_data_coord(coords_station_gare,duradist=1200,mode="pedestrian",method="time",dirout="Iso",file="isodist_gares_pieton_20min")
+
+#Mise en forme des distances pieton 
+car_dist_pieton <- fread(paste0("Iso/isodist_gares_pieton_10min.csv.gz"))
+car_dist_pieton <- car_dist_pieton[car != "NNaNENaN",]
+car_dist_pieton <- left_join(car_dist_pieton,plyr::rename(st_drop_geometry(map_station_gare),c("lon"="lon_dep","lat"="lat_dep")))
+car_dist_pieton <- subset(car_dist_pieton,select=c(type,car))
+car_dist_pieton <- car_dist_pieton[!duplicated(car_dist_pieton),]
+#car_dist_pieton <- dcast(data=car_dist_pieton,car~paste0('10min_pieton_',type),fun.aggregate = length)
+car_dist_pieton$type <- paste0("pieton_",car_dist_pieton$type)
+
+car_dist_voiture <- fread(paste0("Iso/isodist_gares_voiture_10min.csv.gz"))
+car_dist_voiture <- car_dist_voiture[car != "NNaNENaN",]
+car_dist_voiture <- left_join(car_dist_voiture,plyr::rename(st_drop_geometry(map_station_gare),c("lon"="lon_dep","lat"="lat_dep")))
+car_dist_voiture <- subset(car_dist_voiture,select=c(type,car))
+car_dist_voiture <- car_dist_voiture[!duplicated(car_dist_voiture),]
+car_dist_voiture$type <- paste0("voiture_",car_dist_voiture$type)
+
+car_dist_pieton_voiture <- rbind(car_dist_pieton,car_dist_voiture)
+car_dist_pieton_voiture <- dcast(data=car_dist_pieton_voiture,car~paste0('10min_',type),fun.aggregate = length)
+fwrite(car_dist_pieton_voiture,"Iso/isodist_gares_voiture_pieton_10min.csv.gz")
+
+#car_dist_pieton <- fread(paste0("Iso/isodist_gares_pieton_10min.csv.gz"))
+#car_dist <- car_dist[car != "NNaNENaN",]
+#car_dist <- left_join(car_dist,plyr::rename(st_drop_geometry(map_station_gare),c("lon"="lon_dep","lat"="lat_dep")))
+
+#car_dist_voiture <- fread(paste0("Iso/isodist_gares_voiture_10min.csv.gz"))
+
+# 
+# #Carreaux des stations
+# map_stop <- st_read("Rail/map_stop.shp")
+# st_crs(map_stop) <- 3035
+# map_stop <- st_transform(map_stop,crs=4326)
+# map_stop$car <- from_gps_to_car(st_coordinates(map_stop))
+# map_stop[,c("lon","lat")] <- st_coordinates(map_stop)
+# 
+# plot(st_geometry(map_stop),pch=".")
+# #Etape 1 : géolocalisation par carreau
+# car_stop <- unique(map_stop$car)
+# coord_car_stop <- from_car_to_gps(car_stop)
+# 
+# #Chargement des isochrones pour différentes distances (à partir des carreaux)
+# iso_data_coord(coord_car_stop,duradist=1000,mode="pedestrian",method="distance",dirout="Iso",file="isodist_gares_pieton_1000m")
+# iso_data_coord(coord_car_stop,duradist=1500,mode="pedestrian",method="distance",dirout="Iso",file="isodist_gares_pieton_1500m")
+# 
+# #Chargement des isochrones pour différentes distances (à partir des coordonnées exactes)
+# iso_data_coord(st_coordinates(map_stop),duradist=500,mode="pedestrian",method="distance",dirout="Iso",file="isodist_xy_gares_pieton_500m")
+# iso_data_coord(st_coordinates(map_stop),duradist=1000,mode="pedestrian",method="distance",dirout="Iso",file="isodist_xy_gares_pieton_1000m")
+# iso_data_coord(st_coordinates(map_stop),duradist=1500,mode="pedestrian",method="distance",dirout="Iso",file="isodist_xy_gares_pieton_1500m")
+# 
+# #Nombre carreaux accessibles (agrégation des résultats )
+# dist_car_xy <- lapply(c(500,1000,1500),function(dist){
+#   car_dist <- fread(paste0("Iso/isodist_xy_gares_pieton_",dist,"m.csv.gz"))
+#   car_dist <- car_dist[!duplicated(car_dist),]
+#   car_dist$dist <- dist
+#   return(car_dist)
+# })
+# dist_car_xy <- rbindlist(dist_car_xy)
+# dist_car_xy <- subset(dist_car_xy, car != "NNaNENaN" & car_dep != "", select=-c(lon_dep,lat_dep))
+# dist_car_xy <- dcast(data=dist_car_xy,car+car_dep~1,value.var = "dist", fun.aggregate =min)
+# dist_car_xy <- plyr::rename(dist_car_xy,c("."="dist_car_xy"))
+# 
+# #Isochrone à partir du carreau de la station
+# dist_car <- lapply(c(500,1000,1500),function(dist){
+#   car_dist <- fread(paste0("Iso/isodist_gares_pieton_",dist,"m.csv.gz"))
+#   car_dist <- car_dist[!duplicated(car_dist),]
+#   car_dist$dist <- dist
+#   return(car_dist)
+# })
+# dist_car <- rbindlist(dist_car)
+# dist_car <- subset(dist_car, car != "NNaNENaN" & car_dep != "", select=-c(lon_dep,lat_dep))
+# dist_car <- dcast(data=dist_car,car+car_dep~1,value.var = "dist", fun.aggregate =min)
+# dist_car <- plyr::rename(dist_car,c("."="dist_car"))
+# 
+# #Réunion des deux méthodes
+# dist_car_full <- full_join(dist_car,dist_car_xy)
+# dist_car_full[is.na(dist_car_full)] <- 9999
+# dist_car_full$dist <- with(dist_car_full,pmin(dist_car,dist_car_xy))
+# 
+# #Distance des carreaux à chaque moyen de transport 
+# stop_route <- inner_join(st_drop_geometry(map_stop)[,c("id_stop","car")],
+#                          fread("Rail/stop_route.csv",colClasses = "character")[,c("id_stop","id_route")])
+# stop_route <- inner_join(stop_route,fread("Rail/data_route.csv")[,c("id_route","route")])
+# stop_route <- stop_route[,c("car","route")]
+# stop_route <- stop_route[!duplicated(stop_route),]
+#   
+# stop_route_iso <- inner_join(plyr::rename(stop_route,c("car"="car_dep")),dist_car_full[,c("car_dep","car","dist")])
+# 
+# fwrite(stop_route_iso,"Iso/stop_route_iso.csv.gz")
 
 #Comparaison des deux méthodes 
 # count_car <- full_join(plyr::rename(plyr::count(dist_car_full[,c("car_dep","dist_car")]),c("dist_car"="dist")),
