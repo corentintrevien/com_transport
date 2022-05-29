@@ -20,7 +20,7 @@ Le fichier shapefile station_gare_opendata.shp recense l'ensemble des stations e
 
 Le fichier isochone_gares_voiture_pieton.csv.gz recense l'ensemble des carreaux de 200m de France métropolitaine situés à moins de 10 minutes en voiture ou 20 minutes à pied d'une station ou gare ferroviaire. Il comprend les variables suivantes : 
 - car : identifiant carreau défini selon la méthode de carroyage de l'Insee (plus de détail [ici](https://www.insee.fr/fr/statistiques/4176290))
-- time : temps d'accès en minutes (10 ou 20)
+- minute : temps d'accès en minutes (10 ou 20)
 - mode : mode de transport utilisé (voiture ou pieton)
 - type : type de station (tram, métro ou train) 
 
@@ -31,9 +31,9 @@ Le fichier trans_com.csv contient la part de la population d'une commune ayant a
 * ind : nombre d'individus résidant dans la commune
 * men : nombre de ménages résidant dans la commune 
 * men_pauv : nombre de ménages pauvres résidant dans la commune 
-* [pop]\_[time]\_[mode]\_[type] : part de la population [pop] à moins de [time] minutes en [mode] d'une station [type] 
+* [pop]\_[minute]\_[mode]\_[type] : part de la population [pop] à moins de [minute] en [mode] d'une station [type] 
   + [pop] : ind = individus, men = ménages, men_pauv = ménages pauvres
-  + [time] : 10min = 10 minutes, 20min = 20 minutes
+  + [minute] : 10min = 10 minutes, 20min = 20 minutes
   + [mode] : voiture, pieton
   + [type] : metro_tram = station de métro ou tram, train = gare ferroviaire
   + Par exemple : men_10min_pieton_metro_tram indique la part des ménages d'une commune à moins de 10 minutes à pied d'une station de métro ou de tram.
