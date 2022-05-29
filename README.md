@@ -1,11 +1,11 @@
 # com_transport
 Indicateurs communaux d'accessibililité aux transports en commun à partir : 
-- de données en open data sur l'emplacement des stations de transport en commun sur les sites https://transport.data.gouv.fr/ et https://ressources.data.sncf.com/pages/accueil/
-- de l'API de calcul d'isochrones piétons et routiers de l'IGN https://geoservices.ign.fr/documentation/services/api-et-services-ogc/isochrones
-- des données carroyées (200m) de population de l'Insee https://www.insee.fr/fr/statistiques/4176290?sommaire=4176305
+- de données en open data sur l'emplacement des stations de transport en commun sur les sites [transport.data.gouv.fr](https://transport.data.gouv.fr/) et [data.sncf.com](https://ressources.data.sncf.com/explore/dataset/referentiel-gares-voyageurs/)
+- de l'API de calcul d'isochrones piétons et routiers de l'IGN (plus de détails [ici](https://geoservices.ign.fr/documentation/services/api-et-services-ogc/isochrones))
+- des données carroyées (200m) de population de l'Insee (disponibles [ici](https://www.insee.fr/fr/statistiques/4176290))
 
 ## Fichiers générés 
-Le dossier Data_final contient l'ensemble des données finales utiles. Les dossiers Iso, Open_data, IGN contiennent des fichiers intermédiaires et peuvent être détruis à l'issue des  
+Le dossier Data_final contient l'ensemble des données finales utiles. Les dossiers Iso, Open_data, IGN contiennent des fichiers intermédiaires et peuvent être détruits quand les trois programmes ont tourné. 
 
 ### Gares et stations des réseaux férrés français 
 
@@ -19,7 +19,7 @@ Le fichier shapefile station_gare_opendata.shp recense l'ensemble des stations e
 ### Isochrones piétons et routiers des gares et stations 
 
 Le fichier isochone_gares_voiture_pieton.csv.gz recense l'ensemble des carreaux de 200m de France métropolitaine situés à moins de 10 minutes ou en voiture ou 20 minutes à pied d'une station ou gare ferroviaire. Il comprend les variables suivantes : 
-- car : identifiant carreau défini selon la méthode de carroyage de l'Insee (pour plus de détail https://www.insee.fr/fr/statistiques/4176290?sommaire=4176305)
+- car : identifiant carreau défini selon la méthode de carroyage de l'Insee (plus de détail [ici](https://www.insee.fr/fr/statistiques/4176290))
 - time : temps d'accès en minutes (10 ou 20)
 - mode : mode de transport utilisé (voiture ou pieton)
 - type : type de station (tram, métro ou train) 
@@ -28,10 +28,11 @@ Le fichier isochone_gares_voiture_pieton.csv.gz recense l'ensemble des carreaux 
 
 ### Cartes
 
-Des cartes permettant de contrôler la qualité des données produites sont générées : 
+Des cartes permettant de contrôler la qualité des données produites sont générées et enregistrées dans dossier Map : 
 - 
 
 ## Programmes
 Les indicateurs sont consitués avec trois programmes successifs : 
-- 1_opendatarail.R télécharge les données des réseaux de transports collectif urbain et les gares desservies par le TGV sur le site transport.data.gouv.fr (format GTFS) ansi que la liste sur les gares voyageurs du réseau SNCF (format json), les harmonise et les convertit au format cartographique shapefile. 
-- 2_ 
+- 1_opendatarail.R télécharge les données des réseaux de transports collectif urbain et les gares desservies par le TGV sur le site transport.data.gouv.fr (format GTFS) ansi que la liste sur les gares voyageurs du réseau SNCF (format json), les harmonise et les enregistre dans un format cartographique shapefile. 
+- 2_isochrone_IGN.R détermine les isochrones de chaque station du réseau (10 ou 20 minutes à pied, 10 minutes en voiture) et les enregistre sous forme de données carroyées.
+- 3_indicateurs_communaux apparie les isochrones carroyées avec la population (nombre d'individus, de ménages et de ménages pauvres) de chaque carreau, les données sont agrégées au niveau communal pour déterminer la part de la population ayant accès au réseau de transports en commun.
