@@ -28,8 +28,7 @@ Le fichier isochone_gares_voiture_pieton.csv.gz recense l'ensemble des carreaux 
 
 ### Cartes
 
-Des cartes permettant de contrôler la qualité des données produites sont générées et enregistrées dans dossier Map : 
-- 
+Des cartes permettant de contrôler la qualité des données produites sont générées et enregistrées dans dossier Map 
 
 ## Programmes
 Les indicateurs sont consitués avec trois programmes successifs : 
