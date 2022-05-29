@@ -7,13 +7,12 @@ library(httr)
 library(data.table)
 library(archive)
 library(sf)
-
-source("Z_functions.R")
-
+ 
 ####TELECHARGEMENT DES DONNEES####
 #Données Open_data.data.gouv.fr : tous les réseaux ferroviaires/tram/métro de France 
 #(sauf tram de Genève et tram train Sarrebuck)
 
+#Liste de URL de téléchargement des fichiers GTFS pour chaque réseau urbain
 url_transport_data <- 
   c("Angers" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/b5873d02-043e-447a-8433-0a3be706efc8/b5873d02-043e-447a-8433-0a3be706efc8.20211220.120146.314683.zip",
     "Aubagne" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/cde22673-d7e4-4cbd-837f-3c8bd9fb2f9b/cde22673-d7e4-4cbd-837f-3c8bd9fb2f9b.20220501.180811.056290.zip",
@@ -48,6 +47,7 @@ url_transport_data <-
 
 dir.create("Open_data",showWarnings = FALSE)
 
+#Boucle de téléchargement et d'enregistrement de chaque fichier GTFS 
 for(v in 1:length(url_transport_data)){
   print(names(url_transport_data)[v])
   try({
@@ -62,7 +62,7 @@ for(v in 1:length(url_transport_data)){
   })
 }
 
-#OPEN DATA SNCF 
+#Téléchargement des données OPEN DATA SNCF sur les gares voyageurs 
 url_sncf <- "https://ressources.data.sncf.com/explore/dataset/referentiel-gares-voyageurs/download/?format=geojson&timezone=Europe/Berlin&lang=fr"
 resp <- GET(url_sncf, encoding = "UTF-8")
 gares_json <- fromJSON(content(resp, "text", encoding = "UTF-8"))
@@ -78,6 +78,7 @@ gares_data <- lapply(gares_json$features,function(g){
                         warn_missing = FALSE)
   return(gdata)})
 
+#Enregistrement au format csv
 gares_data <- rbind.fill(gares_data)
 gares_data$stop_id <- as.character(as.numeric(gares_data$stop_id))
 gares_data <- gares_data[!is.na(gares_data$stop_lon),]
@@ -101,12 +102,11 @@ path_map_ign <- "ADMIN-EXPRESS-COG_2-1__SHP__FRA_2020-11-20/ADMIN-EXPRESS-COG/1_
 #Mise en forme des réseaux urbains 
 list_reseaux <- names(url_transport_data)
 
-f <- "Provence"
 import_stops <- lapply(list_reseaux,function(f){
   print(f)
   #Liaisons
   routes <- fread(paste0("Open_data/",f,"/routes.txt"))
-  #Correction des données
+  #Correction des données (retraitement de certains classements erronés ou discutables)
   if(f == "Provence"){routes$route_type <- 2} 
   if(f == "Bordeaux"){
     routes <- routes[route_short_name %in% c("A","B","C","D"),]
@@ -121,10 +121,8 @@ import_stops <- lapply(list_reseaux,function(f){
   if(f == "Caen"){routes <- routes[routes$route_type == 0,]} 
   if(f == "Rouen"){routes <- routes[routes$route_type != 0,]} 
   if(f %in% c("Rouen",'Reims','Aubagne')){routes[route_type == 1,"route_type"] <- 0}
-  
   #Sélection des liaisons ferrovaires 
   routes <- routes[route_type %in% 0:2,]
-  
   #Trajets
   trips <- fread(paste0("Open_data/",f,"/trips.txt"))
   #Sélection des trajets ferrovaires 
@@ -156,7 +154,7 @@ stops <- setDT(stops)
 #Conversion au format cartographique
 map_stops <- st_as_sf(stops, coords = c("stop_lon", "stop_lat"), crs = 4326, agr = "constant")
 
-#sélection des stations en France
+#sélection des stations localisées en France
 path_map_ign <- "ADMIN-EXPRESS-COG_2-1__SHP__FRA_2020-11-20/ADMIN-EXPRESS-COG/1_DONNEES_LIVRAISON_2020-11-20/ADE-COG_2-1_SHP_WGS84G_FRA"
 region <- st_read(paste0("IGN/",path_map_ign,"/REGION.shp"))
 region <- region[!region$NOM_REG %in% c("Guadeloupe","Martinique","Mayotte","La Réunion","Guyane"),]
@@ -176,13 +174,12 @@ for(s in list_reseaux){
 }
 dev.off()
 
-
-#Open DATA SNCF 
+#Chargement des gares voyageur open DATA SNCF 
 gares_sncf <- fread("Open_data/SNCF/Gares_opendata_sncf.csv.gz")
 gares_sncf <- gares_sncf[!is.na(gares_sncf$stop_lon) & !is.na(gares_sncf$stop_lat),]
 gares_sncf <- st_as_sf(gares_sncf, coords = c("stop_lon", "stop_lat"), crs = 4326, agr = "constant")
 
-#sélection des stations en France
+#Sélection des stations en France
 gares_sncf$region <- as.numeric(st_intersects(gares_sncf,region))
 gares_sncf$region <- region$NOM_REG[gares_sncf$region]
 gares_sncf <- gares_sncf[!is.na(gares_sncf$region),]
@@ -192,16 +189,12 @@ gares_sncf$TGV <- as.numeric(gares_sncf$stop_id %in% map_stops[map_stops$source 
 
 #Fusion avec suppression des doublons en Île-de-France et dans les gares TGV entre les différentes sources de données
 #mean(map_stops[map_stops$source == "TGV",]$stop_id %in% gares_sncf[gares_sncf$TGV==1,]$stop_id)
-#!()
-map_stops$TGV <- 0
-gares_sncf$source <- "SNCF"
-gares_sncf$route_type <- 2
 
-#Cartes de vérification
 map_station_gare <- rbind(subset(gares_sncf[!((gares_sncf$TGV==0 & gares_sncf$agence_sncf=="DGIF" & gares_sncf$region=="Île-de-France") | gares_sncf$source == "TGV"),],
                                  select=-c(code_gare,agence_sncf,region_sncf)),
                           map_stops[!(map_stops$source=="IDF" & map_stops$region!="Île-de-France"),])
 
+#Cartes de vérification
 pdf("Map/Carte_station_france.pdf")
   plot(st_geometry( map_station_gare[map_station_gare$route_type ==0,]),pch=".",main="Tramway")
   plot(st_geometry( map_station_gare[map_station_gare$route_type ==1,]),pch=".",main="Métro")
@@ -209,10 +202,11 @@ pdf("Map/Carte_station_france.pdf")
   plot(st_geometry( map_station_gare[map_station_gare$TGV ==1,]),pch=".",main="TGV")
 dev.off()
 
+#Type de réseau
 map_station_gare$type <-ifelse(map_station_gare$route_type==0,"tram","")
 map_station_gare$type <-ifelse(map_station_gare$route_type==1,"metro",map_station_gare$type )
 map_station_gare$type <-ifelse(map_station_gare$route_type==2,"train",map_station_gare$type)
 
+#Enregistrement des données finales sur les stations ferrées 
 dir.create("Data_final")
 st_write(map_station_gare,"Data_final/station_gare_opendata.shp",delete_dsn=T)
-
