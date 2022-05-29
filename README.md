@@ -18,13 +18,20 @@ Le fichier shapefile station_gare_opendata.shp recense l'ensemble des stations e
 
 ### Isochrones piétons et routiers des gares et stations 
 
+Le fichier isochone_gares_voiture_pieton.csv.gz recense l'ensemble des carreaux de 200m de France métropolitaine situés à moins de 10 minutes ou en voiture ou 20 minutes à pied d'une station ou gare ferroviaire. Il comprend les variables suivantes : 
+- car : identifiant carreau défini selon la méthode de carroyage de l'Insee (pour plus de détail https://www.insee.fr/fr/statistiques/4176290?sommaire=4176305)
+- time : temps d'accès en minutes (10 ou 20)
+- mode : mode de transport utilisé (voiture ou pieton)
+- type : type de station (tram, métro ou train) 
+
 ### Indicateurs communaux d'accessibilité aux transports en commun
 
 ### Cartes
+
 Des cartes permettant de contrôler la qualité des données produites sont générées : 
 - 
 
 ## Programmes
 Les indicateurs sont consitués avec trois programmes successifs : 
-- 1_opendatarail.R télécharge les données des réseaux de transports collectif urbain et les gares desservies par le TGV sur le site transport.data.gouv.fr (format GTFS) ansi que la liste sur les gares voyageurs du réseau SNCF (format csv), les harmonise et les convertit au format cartographique shapefile. 
+- 1_opendatarail.R télécharge les données des réseaux de transports collectif urbain et les gares desservies par le TGV sur le site transport.data.gouv.fr (format GTFS) ansi que la liste sur les gares voyageurs du réseau SNCF (format json), les harmonise et les convertit au format cartographique shapefile. 
 - 2_ 
