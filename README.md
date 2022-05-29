@@ -31,7 +31,7 @@ Le fichier trans_com.csv contient la part de la population d'une commune ayant a
 * ind : nombre d'individus résidant dans la commune
 * men : nombre de ménages résidant dans la commune 
 * men_pauv : nombre de ménages pauvres résidant dans la commune 
-* [pop]\_[minute]\_[mode]\_[type] : part de la population [pop] à moins de [minute] en [mode] d'une station [type] 
+* [pop]\_[minute]\_[mode]\_[type] : part de la population [pop] à moins de [minute] minutes en [mode] d'une station [type] 
   + [pop] : ind = individus, men = ménages, men_pauv = ménages pauvres
   + [minute] : 10min = 10 minutes, 20min = 20 minutes
   + [mode] : voiture, pieton
