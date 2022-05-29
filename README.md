@@ -27,11 +27,16 @@ Le fichier isochone_gares_voiture_pieton.csv.gz recense l'ensemble des carreaux 
 ### Indicateurs communaux d'accessibilité aux transports en commun
 
 Le fichier trans_com.csv contient la part de la population d'une commune ayant accès aux transports en commun ferrés. Il comprend les variables suivantes : 
-- codgeo : code commune 
-- ind : nombre d'individus résidant dans la commune
-- men : nombre de ménages résidant dans la commune 
-- men_pauv : nombre de ménages pauvres résidant dans la commune 
-- [pop]\_[time]\_[mode]\_[type] : part de la population [pop] (ind = individus, men = ménages, men_pauv = ménages pauvres) à moins de [time] (10min = 10 minutes, 20min = 20 minutes) en [mode] (voiture ou pieton) d'une station [type] (metro_tram = station de métro ou tram, train = gare ferroviaire). Part exemple : men_10min_pieton_metro_tram indique la part des ménages d'une commune à moins de 10 minutes à pied d'une station de métro ou de tram.
+* codgeo : code commune 
+* ind : nombre d'individus résidant dans la commune
+* men : nombre de ménages résidant dans la commune 
+* men_pauv : nombre de ménages pauvres résidant dans la commune 
+* [pop]\_[time]\_[mode]\_[type] : part de la population [pop] à moins de [time] minutes en [mode] d'une station [type] 
+  + [pop] : ind = individus, men = ménages, men_pauv = ménages pauvres
+  + [time] : 10min = 10 minutes, 20min = 20 minutes
+  + [mode] : voiture, pieton
+  + [type] : metro_tram = station de métro ou tram, train = gare ferroviaire
+  + Par exemple : men_10min_pieton_metro_tram indique la part des ménages d'une commune à moins de 10 minutes à pied d'une station de métro ou de tram.
 
 ### Cartes
 
