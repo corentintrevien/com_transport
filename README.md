@@ -1,5 +1,5 @@
 # com_transport
-Indicateurs communaux d'accessibililité aux transports en commun ferrés partir : 
+Indicateurs communaux d'accessibilité aux transports en commun ferrés partir : 
 - de données en open data sur l'emplacement des stations de transport en commun sur les sites [transport.data.gouv.fr](https://transport.data.gouv.fr/) et [data.sncf.com](https://ressources.data.sncf.com/explore/dataset/referentiel-gares-voyageurs/)
 - de l'API de calcul d'isochrones piétons et routiers de l'IGN (plus de détails [ici](https://geoservices.ign.fr/documentation/services/api-et-services-ogc/isochrones))
 - des données carroyées (200m) de population de l'Insee (disponibles [ici](https://www.insee.fr/fr/statistiques/4176290))
