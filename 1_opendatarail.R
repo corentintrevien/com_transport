@@ -97,7 +97,9 @@ download_regions_ign <- function(){
     file.remove("IGN/ADMIN-EXPRESS-COG_2-1__SHP__FRA_WGS84G_2020-11-20.7z")
   }}
 path_map_ign <- "ADMIN-EXPRESS-COG_2-1__SHP__FRA_2020-11-20/ADMIN-EXPRESS-COG/1_DONNEES_LIVRAISON_2020-11-20/ADE-COG_2-1_SHP_WGS84G_FRA"
-#download_regions_ign()
+if(!file.exists("IGN/ADMIN-EXPRESS-COG_2-1__SHP__FRA_WGS84G_2020-11-20.7z")){
+  download_regions_ign()
+}
 
 #Mise en forme des réseaux urbains 
 list_reseaux <- names(url_transport_data)
