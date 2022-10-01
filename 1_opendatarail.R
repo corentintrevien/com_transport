@@ -24,6 +24,7 @@ url_transport_data <-
     "Clermont_Ferrand" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/cdb5cde9-a6f4-4805-a66b-1d983a1891d6/cdb5cde9-a6f4-4805-a66b-1d983a1891d6.20211202.145756.989589.zip",
     "Corse" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/c6f665c6-65d2-4975-ad46-401e600d9e37/c6f665c6-65d2-4975-ad46-401e600d9e37.20220127.181315.656496.zip",
     "Dijon" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/a87e1796-7f98-467e-91a4-eb0eae3a7478/a87e1796-7f98-467e-91a4-eb0eae3a7478.20211230.120132.499718.zip",
+    "Grenoble" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/b6ec7ba4-09bc-46df-b9a1-79a2c2668cf2/b6ec7ba4-09bc-46df-b9a1-79a2c2668cf2.20220110.180241.775557.zip",
     "IDF" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/4c13f5c0-ed5f-4916-95fe-1a093e7a0c6a/4c13f5c0-ed5f-4916-95fe-1a093e7a0c6a.20220103.180325.483040.zip",
     "Le_Havre" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/d7cb95d9-63f5-4a29-a6eb-63dc543a5590/d7cb95d9-63f5-4a29-a6eb-63dc543a5590.20211220.180401.485856.zip",
     "Le_Mans" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/5339d96c-6d20-4a01-939a-40f7b56d6cc1/5339d96c-6d20-4a01-939a-40f7b56d6cc1.20220127.100656.627519.zip",
@@ -31,12 +32,14 @@ url_transport_data <-
     "Lyon" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/a64b0837-b0ab-4bea-8c7a-a0531ae4d2e8/a64b0837-b0ab-4bea-8c7a-a0531ae4d2e8.20220308.060359.167369.zip",
     "Marseille" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/7eef6ec9-9ebb-44f2-becb-2efc522522d6/7eef6ec9-9ebb-44f2-becb-2efc522522d6.20211231.060328.167270.zip",
     "Montpellier" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/2ef043c8-3b10-4d87-af5f-65fead127407/2ef043c8-3b10-4d87-af5f-65fead127407.20211221.060728.800951.zip",
+    "Mulhouse" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/b47898c0-08f3-4800-a95a-40701116dabe/b47898c0-08f3-4800-a95a-40701116dabe.20220513.060431.651727.zip",
     "Nancy" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/e7e78cd7-e186-4923-a272-9713fbc28b45/e7e78cd7-e186-4923-a272-9713fbc28b45.20211209.180205.545845.zip",
     "Nantes" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/d2155136-23ba-449c-b98c-f756144c8d9a/d2155136-23ba-449c-b98c-f756144c8d9a.20211216.180254.134491.zip",
     "Nice" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/aacb4eea-d008-4b13-b17a-848b8ced7e03/aacb4eea-d008-4b13-b17a-848b8ced7e03.20220105.060337.933391.zip",
     "Orleans" = "https://chouette.enroute.mobi/api/v1/datas/keolis_orleans.gtfs.zip",
     "Provence" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/d86cc177-27b0-4376-9527-045262e58983/d86cc177-27b0-4376-9527-045262e58983.20220402.000137.611843.zip",
     "Reims" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/93c13187-03ec-4aa4-b968-ac6304ca9518/93c13187-03ec-4aa4-b968-ac6304ca9518.20211207.060010.550533.zip",
+    "Rennes"  = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/e2cc0418-e36e-4b13-9306-9e57365dcecf/e2cc0418-e36e-4b13-9306-9e57365dcecf.20220207.094425.504243.zip",
     "Rouen" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/c0ebcf01-954a-4d24-b2d8-a00333ffe937/c0ebcf01-954a-4d24-b2d8-a00333ffe937.20220207.102220.538183.zip",
     "Saint_Etienne" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/8b3e71e2-1155-4fb0-bf4a-cdddbb496e29/8b3e71e2-1155-4fb0-bf4a-cdddbb496e29.20211206.120134.651632.zip",
     "Strasbourg" = "https://transport-data-gouv-fr-resource-history-prod.cellar-c2.services.clever-cloud.com/eeea9e52-4f8a-459e-aef5-a093a3b05356/eeea9e52-4f8a-459e-aef5-a093a3b05356.20220207.095538.432678.zip",
@@ -97,9 +100,7 @@ download_regions_ign <- function(){
     file.remove("IGN/ADMIN-EXPRESS-COG_2-1__SHP__FRA_WGS84G_2020-11-20.7z")
   }}
 path_map_ign <- "ADMIN-EXPRESS-COG_2-1__SHP__FRA_2020-11-20/ADMIN-EXPRESS-COG/1_DONNEES_LIVRAISON_2020-11-20/ADE-COG_2-1_SHP_WGS84G_FRA"
-if(!file.exists("IGN/ADMIN-EXPRESS-COG_2-1__SHP__FRA_WGS84G_2020-11-20.7z")){
-  download_regions_ign()
-}
+download_regions_ign()
 
 #Mise en forme des réseaux urbains 
 list_reseaux <- names(url_transport_data)
@@ -107,7 +108,7 @@ list_reseaux <- names(url_transport_data)
 import_stops <- lapply(list_reseaux,function(f){
   print(f)
   #Liaisons
-  routes <- fread(paste0("Open_data/",f,"/routes.txt"))
+  routes <- fread(paste0("Open_data/",f,"/routes.txt"),colClasses = c("route_id"="character"))
   #Correction des données (retraitement de certains classements erronés ou discutables)
   if(f == "Provence"){routes$route_type <- 2} 
   if(f == "Bordeaux"){
@@ -126,11 +127,12 @@ import_stops <- lapply(list_reseaux,function(f){
   #Sélection des liaisons ferrovaires 
   routes <- routes[route_type %in% 0:2,]
   #Trajets
-  trips <- fread(paste0("Open_data/",f,"/trips.txt"))
+  trips <- read.csv(paste0("Open_data/",f,"/trips.txt"),colClasses = c("route_id"="character","trip_id"="character"))
+  setDT(trips)  
   #Sélection des trajets ferrovaires 
-  trips <- right_join(trips,routes[,c("route_id","route_type")])
+  trips <- right_join(trips,subset(routes,select=c("route_id","route_type")),by="route_id")
   #Horaires
-  stop_times <- fread(paste0("Open_data/",f,"/stop_times.txt"),colClasses = c("stop_id"="character"))
+  stop_times <- fread(paste0("Open_data/",f,"/stop_times.txt"),colClasses = c("stop_id"="character","trip_id"="character"))
   #Sélection des stations desservies par un train
   stop_times <- right_join(stop_times,trips[,c("trip_id","route_type")])
   stop_times <- stop_times[,c("stop_id","route_type")]
@@ -192,9 +194,13 @@ gares_sncf$TGV <- as.numeric(gares_sncf$stop_id %in% map_stops[map_stops$source 
 #Fusion avec suppression des doublons en Île-de-France et dans les gares TGV entre les différentes sources de données
 #mean(map_stops[map_stops$source == "TGV",]$stop_id %in% gares_sncf[gares_sncf$TGV==1,]$stop_id)
 
-map_station_gare <- rbind(subset(gares_sncf[!((gares_sncf$TGV==0 & gares_sncf$agence_sncf=="DGIF" & gares_sncf$region=="Île-de-France") | gares_sncf$source == "TGV"),],
-                                 select=-c(code_gare,agence_sncf,region_sncf)),
-                          map_stops[!(map_stops$source=="IDF" & map_stops$region!="Île-de-France"),])
+gares_sncf <- subset(gares_sncf,!(TGV==0 & agence_sncf=="DGIF" & region=="Île-de-France"),select=-c(code_gare,agence_sncf,region_sncf))
+gares_sncf$route_type <- 2
+gares_sncf$source <- "SNCF"
+map_stops <- subset(map_stops,!(source=="IDF" & region!="Île-de-France") & !source == "TGV")
+map_stops$TGV <- 0 
+
+map_station_gare <- rbind(gares_sncf, map_stops)
 
 #Cartes de vérification
 pdf("Map/Carte_station_france.pdf")
