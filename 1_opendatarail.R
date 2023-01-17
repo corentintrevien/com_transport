@@ -8,6 +8,7 @@ library(data.table)
 library(archive)
 library(sf)
  
+source('0_functions.R')
 ####TELECHARGEMENT DES DONNEES####
 #Données Open_data.data.gouv.fr : tous les réseaux ferroviaires/tram/métro de France 
 #(sauf tram de Genève et tram train Sarrebuck)
@@ -90,17 +91,7 @@ fwrite(gares_data,"Open_data/SNCF/Gares_opendata_sncf.csv.gz")
 
 ####FICHIER CATOGRAPHIQUE DES STATIONS####
 #Carte des régions de France 
-download_regions_ign <- function(){
-  if(!file.exists(paste0("IGN/",path_map_ign,"/region.shp"))){
-    dir.create("IGN",showWarnings = FALSE)
-    curl_download("ftp://Admin_Express_ext:Dahnoh0eigheeFok@ftp3.ign.fr/ADMIN-EXPRESS-COG_2-1__SHP__FRA_WGS84G_2020-11-20.7z",
-                  "IGN/ADMIN-EXPRESS-COG_2-1__SHP__FRA_WGS84G_2020-11-20.7z", mode="wb")
-    archive_extract("IGN/ADMIN-EXPRESS-COG_2-1__SHP__FRA_WGS84G_2020-11-20.7z",dir="IGN",
-                    files = paste0(path_map_ign,"/REGION.",c("shp","shx","dbf","prj","cpg")))
-    file.remove("IGN/ADMIN-EXPRESS-COG_2-1__SHP__FRA_WGS84G_2020-11-20.7z")
-  }}
-path_map_ign <- "ADMIN-EXPRESS-COG_2-1__SHP__FRA_2020-11-20/ADMIN-EXPRESS-COG/1_DONNEES_LIVRAISON_2020-11-20/ADE-COG_2-1_SHP_WGS84G_FRA"
-download_regions_ign()
+download_ign_admin_express("REGION")
 
 #Mise en forme des réseaux urbains 
 list_reseaux <- names(url_transport_data)
@@ -159,22 +150,22 @@ stops <- setDT(stops)
 map_stops <- st_as_sf(stops, coords = c("stop_lon", "stop_lat"), crs = 4326, agr = "constant")
 
 #sélection des stations localisées en France
-path_map_ign <- "ADMIN-EXPRESS-COG_2-1__SHP__FRA_2020-11-20/ADMIN-EXPRESS-COG/1_DONNEES_LIVRAISON_2020-11-20/ADE-COG_2-1_SHP_WGS84G_FRA"
 region <- st_read(paste0("IGN/",path_map_ign,"/REGION.shp"))
-region <- region[!region$NOM_REG %in% c("Guadeloupe","Martinique","Mayotte","La Réunion","Guyane"),]
+region <- st_transform(region,crs=4326)
 map_stops$region <- as.numeric(st_intersects(map_stops,region))
-map_stops$region <- region$NOM_REG[map_stops$region]
+map_stops$region <- region$NOM[map_stops$region]
 map_stops <- map_stops[!is.na(map_stops$region),]
 
 #Vérification catographique des données
 dir.create("Map",showWarnings = FALSE)
 pdf("Map/Carte_station_reseau.pdf")
+
 for(s in list_reseaux){
   print(s)
   plot(st_geometry(map_stops[map_stops$source==s,]),pch = ".",col="white",main=s)
-  plot(st_geometry(map_stops[map_stops$source==s & map_stops$route_type ==0,]),pch = 19,col="blue",add=T)
-  plot(st_geometry(map_stops[map_stops$source==s & map_stops$route_type ==1,]),pch = 19,col="green",add=T)
   plot(st_geometry(map_stops[map_stops$source==s & map_stops$route_type ==2,]),pch = 19,col="red",add=T)
+  plot(st_geometry(map_stops[map_stops$source==s & map_stops$route_type ==1,]),pch = 19,col="green",add=T)
+  plot(st_geometry(map_stops[map_stops$source==s & map_stops$route_type ==0,]),pch = 19,col="blue",add=T)
 }
 dev.off()
 
@@ -185,7 +176,7 @@ gares_sncf <- st_as_sf(gares_sncf, coords = c("stop_lon", "stop_lat"), crs = 432
 
 #Sélection des stations en France
 gares_sncf$region <- as.numeric(st_intersects(gares_sncf,region))
-gares_sncf$region <- region$NOM_REG[gares_sncf$region]
+gares_sncf$region <- region$NOM[gares_sncf$region]
 gares_sncf <- gares_sncf[!is.na(gares_sncf$region),]
 
 #Tag des gares grande ligne 
@@ -197,10 +188,9 @@ gares_sncf$TGV <- as.numeric(gares_sncf$stop_id %in% map_stops[map_stops$source 
 gares_sncf <- subset(gares_sncf,!(TGV==0 & agence_sncf=="DGIF" & region=="Île-de-France"),select=-c(code_gare,agence_sncf,region_sncf))
 gares_sncf$route_type <- 2
 gares_sncf$source <- "SNCF"
-map_stops <- subset(map_stops,!(source=="IDF" & region!="Île-de-France") & !source == "TGV")
-map_stops$TGV <- 0 
 
-map_station_gare <- rbind(gares_sncf, map_stops)
+map_stops$TGV <- as.numeric(map_stops$source=="TGV")
+map_station_gare <- rbind(gares_sncf, subset(map_stops,!(source=="IDF" & region!="Île-de-France") & !source == "TGV"))
 
 #Cartes de vérification
 pdf("Map/Carte_station_france.pdf")
