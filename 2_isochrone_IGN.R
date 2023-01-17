@@ -21,88 +21,48 @@ car_depart <- "N3081800E3831800"
 
 dir.create('Iso',showWarnings = FALSE)
 
-#Fonction de conversion : Coordonnée WGS84 vers carreau Insee de rattachement 
-from_gps_to_car<- function(coord){
-  coord_pt <- split(coord,1:(length(unlist(coord))/2))
-  coord_pt <- lapply(coord_pt,as.numeric)
-  coord_pt <- lapply(coord_pt,st_point)
-  coord_laea <- st_transform(st_sfc(coord_pt,crs= 4326),crs = 3035)
-  coord_laea <- as.data.frame(st_coordinates(coord_laea))
-  coord_laea$car <- paste0("N",floor(coord_laea$Y/200)*200,"E",floor(coord_laea$X/200)*200)
-  return(coord_laea$car)
-} 
 
-#Fonction permettant de récupérer les carreaux Insee accessibles depuis un point donné selon un mode et un temps donné
-get_iso_car <- function(coord_depart,duradist,mode,method){
-  coord_depart <- as.numeric(coord_depart)
-  coord_depart <- round(coord_depart,digits=5)
-  car_depart <- from_gps_to_car(coord_depart)
-    
-  url_api <- paste0("https://itineraire.ign.fr/simple/1.0.0/isochrone?resource=bdtopo-pgr&profile=",
-                    mode,"&costType=",method,"&costValue=",duradist,"&direction=departure&point=",
-                    coord_depart[1],",",coord_depart[2],"&constraints=&geometryFormat=geojson")
-  
-  resp <- GET(url_api, encoding = "UTF-8")
-  isochrone_json <- fromJSON(content(resp, "text", encoding = "UTF-8"))
-  if(!is.null(isochrone_json$geometry)){
-    isochrone_sf <- st_sfc(st_polygon(lapply(isochrone_json$geometry$coordinate,function(x) do.call(rbind,x))), crs = 4326)
-    isochrone_sf <- st_sf(geom=isochrone_sf,status="OK")
-    isochrone_sf <-st_buffer( st_transform(isochrone_sf,crs=3035),dist = 100) 
-    bbox_iso <- floor(st_bbox(isochrone_sf)/200)*200 + c(0,0,200,200) 
-    raster_iso <- raster(xmn=bbox_iso["xmin"], xmx=bbox_iso["xmax"], ymn=bbox_iso["ymin"], ymx=bbox_iso["ymax"],crs = 3035,res=200)
-    raster_iso <- fasterize(isochrone_sf,raster_iso)
-    car_iso <- as.data.frame(raster_iso)
-    car_iso[,c("x","y")] <- coordinates(raster_iso)
-    car_iso <- car_iso[!is.na(car_iso$layer),c("x","y")]
-    if(nrow(car_iso)>0){
-      car_iso$car <- paste0("N",car_iso$y-100,"E",car_iso$x-100)
-      #Carreau de départ
-      car_iso$car_dep <- car_depart
-      car_iso <- subset(car_iso,select = -c(x,y))
-    }else{car_iso <- data.frame(car_dep=car_depart,car=NA)}
-  }else{car_iso <- data.frame(car_dep=car_depart,car=NA)}
-  
-  car_iso$lon_dep <- coord_depart[1]
-  car_iso$lat_dep <- coord_depart[2]
-  
-  return(car_iso)
-}
 
-#get_iso_car(c(2.347820932099209,48.82976328107956),duradist=1000,method='distance',mode='pedestrian')
-
-#Fonction permettant de renvoyer une liste de carreaux depuis un point (en entrée : une table avec deux colonnes, longitude et latitude)
 iso_data_coord <- function(data_coord,duradist,mode="pedestrian",method="distance",dirout,file){
   #Mise en forme de la table
   colnames(data_coord) <- c("lon_dep","lat_dep")
   data_coord <- as.data.table(data_coord[,1:2])
   data_coord <- round(data_coord,digits = 5)
-    
+  print(paste("Nombre total d'isochrones/isodistances :",nrow(data_coord)))
+  
   #Sélection des observations déjà traitées et enregistrées
   if(file.exists(paste0(dirout,"/",file,".csv.gz"))){
     deja_charge <- fread(paste0(dirout,"/",file,".csv.gz"))
-    #Décompression du fichier
-    fwrite(deja_charge,paste0(dirout,"/",file,".csv"))
-    dep_deja_charge <- deja_charge[!duplicated(deja_charge[,c("lon_dep","lat_dep")]),]
-    data_coord <- full_join(data_coord,dep_deja_charge,by = c("lon_dep","lat_dep"))
-    data_coord <- data_coord[is.na(car_dep),c("lon_dep","lat_dep")]
+    #Sélection des isochrones non-chargés
+    deja_charge <- subset(deja_charge,!is.na(car),select=c("lon_dep","lat_dep")) 
+    deja_charge <- round(deja_charge,digits = 5)
+    deja_charge <- subset(deja_charge,!duplicated(deja_charge))
+    print(paste("Nombre d'isochrones/isodistances déjà chargés :",nrow(deja_charge)))
+    data_coord <- anti_join(data_coord,deja_charge,by = c("lon_dep","lat_dep"))
   }
   
   print(paste("Nombre d'isochrones/isodistances à charger :",nrow(data_coord)))
   #Ajout des observations non matchées au fichiers d'isochrones
-  c <- 1
-  while(c<=nrow(data_coord)){
-    try({iso_car <- get_iso_car(coord_depart = data_coord[c+1,],duradist=duradist,mode=mode,method=method)
-    write.table(iso_car,paste0(dirout,"/",file,".csv"),row.names = F, append=T,sep=",",
-                col.names=!file.exists(paste0(dirout,"/",file,".csv")))})
-    c <- c + 1
-    if(c %%100 == 0){print(paste(c,"/",nrow(data_coord)))}
+  #t <- 0
+  for(t in 0:(nrow(data_coord)%/% 100)){
+    first_iso <- t*100+1
+    last_iso <- min(t*100+100,nrow(data_coord))
+    print(paste(first_iso,"/",nrow(data_coord)))
+    #Chargement de la tranche de 100 isochrones
+    iso_car <- lapply(first_iso:last_iso,function(i){ try({get_iso_car(coord_depart = data_coord[i,],duradist=duradist,mode=mode,method=method)})})
+    iso_car <- rbindlist(iso_car)
+
+    #Enregistrement 
+    if(file.exists(paste0(dirout,"/",file,".csv.gz"))){
+      deja_charge <- fread(paste0(dirout,"/",file,".csv.gz"))
+      deja_charge <- subset(deja_charge,!is.na(car),select=c("car_dep","car","lon_dep","lat_dep"))
+      deja_charge <- rbindlist(list(deja_charge,iso_car))
+      fwrite(deja_charge,paste0(dirout,"/",file,".csv.gz"))
+    }else{
+      fwrite(iso_car,paste0(dirout,"/",file,".csv.gz"))
+      }
+
   }
-  
-  #Compression des données une fois la totalité des observations enregistrées 
-  deja_charge <- fread(paste0(dirout,"/",file,".csv"))
-  fwrite(deja_charge,paste0(dirout,"/",file,".csv.gz"))
-  file.remove(paste0(dirout,"/",file,".csv"))
-  
 }
   
 #Chargement des données cartographiques des stations
@@ -129,8 +89,8 @@ car_station_gare <- car_station_gare[!duplicated(car_station_gare),]
 
 #Mise en forme des distances selon le mode et la distance pieton (10 min)
 car_dist_pieton <- fread(paste0("Iso/isodist_gares_pieton_10min.csv.gz"))
-car_dist_pieton <- car_dist_pieton[car != "NNaNENaN",]
-car_dist_pieton <- left_join(car_dist_pieton,car_station_gare)
+car_dist_pieton <- car_dist_pieton[!is.na(car),]
+car_dist_pieton <- left_join(car_dist_pieton,car_station_gare, by = "car_dep")
 car_dist_pieton <- subset(car_dist_pieton,select=c(type,car))
 car_dist_pieton <- car_dist_pieton[!duplicated(car_dist_pieton),]
 car_dist_pieton$mode <- "pieton"
@@ -138,8 +98,8 @@ car_dist_pieton$minute <- 10
 
 #Mise en forme des distances pieton (20min)
 car_dist_pieton20 <- fread(paste0("Iso/isodist_gares_pieton_20min.csv.gz"))
-car_dist_pieton20 <- car_dist_pieton20[car != "NNaNENaN",]
-car_dist_pieton20 <- left_join(car_dist_pieton20,car_station_gare)
+car_dist_pieton20 <- car_dist_pieton20[!is.na(car),]
+car_dist_pieton20 <- left_join(car_dist_pieton20,car_station_gare, by = "car_dep")
 car_dist_pieton20 <- subset(car_dist_pieton20,select=c(type,car))
 car_dist_pieton20 <- car_dist_pieton20[!duplicated(car_dist_pieton20),]
 car_dist_pieton20$mode <- "pieton"
@@ -147,8 +107,8 @@ car_dist_pieton20$minute <- 20
 
 #Mise en forme des distances voiture (10min)
 car_dist_voiture <- fread(paste0("Iso/isodist_gares_voiture_10min.csv.gz"))
-car_dist_voiture <- car_dist_voiture[car != "NNaNENaN",]
-car_dist_voiture <- left_join(car_dist_voiture,car_station_gare)
+car_dist_voiture <- car_dist_voiture[!is.na(car),]
+car_dist_voiture <- left_join(car_dist_voiture,car_station_gare, by = "car_dep")
 car_dist_voiture <- subset(car_dist_voiture,select=c(type,car))
 car_dist_voiture <- car_dist_voiture[!duplicated(car_dist_voiture),]
 car_dist_voiture$mode <- "voiture"
@@ -158,4 +118,3 @@ car_dist_voiture$minute <- 10
 car_dist_pieton_voiture <- rbind(car_dist_pieton,car_dist_pieton20,car_dist_voiture)
 
 fwrite(car_dist_pieton_voiture,"Data_final/isochone_gares_voiture_pieton.csv.gz")
-
